@@ -8,6 +8,18 @@ When you press the Easy-Switch button on the keyboard, CleverSwitch detects it a
 - Supports connections via Logitech receivers and Bluetooth.
 - Tested with `MX Keys` and `MX Master 3` on Linux, macOS, and Windows.
 
+### About this fork
+
+This fork ([Beardowings/CleverSwitch](https://github.com/Beardowings/CleverSwitch), branch `feature/mouse-button-switch`) adds, for Windows and macOS:
+
+- **[Mouse Button Switch](#mouse-button-switch):** one mouse button (the thumb button by default) switches the keyboard and the mouse to the other computer together, offline, with Logi Options+ still running.
+- **A tray / menu bar icon** to turn it on and off, pick the target channel and the button, name the channels and open Logi Options+.
+- **No files to create by hand:** the config file is written on first start and kept up to date by the menu.
+
+Tested with `MX Master 3S for Business` and `MX Keys for Business`: Windows on a Bolt receiver, and a Mac with Apple silicon on Bluetooth with Logi Options+ running.
+
+> **Newer keyboards do not report the Easy-Switch key.** The `MX Keys for Business` (and, per upstream issues [#113](https://github.com/MikalaiBarysevich/CleverSwitch/issues/113) and [#28](https://github.com/MikalaiBarysevich/CleverSwitch/issues/28), the `MX Keys S`) switch away without telling the computer which key was pressed; the computer only sees the keyboard disconnect. CleverSwitch then cannot send the mouse along, on Bolt and on Bluetooth, with or without Logi Options+. Use the [mouse button](#mouse-button-switch) to switch both devices instead.
+
 > **Note:** CleverSwitch does not override device firmware. It acts as a forwarder, which means there is a small delay after reconnection. If you switch back immediately after arriving from another host, the devices may not switch together — CleverSwitch needs a moment to set everything up after reconnection.
 
 ## Support the Project
@@ -21,7 +33,27 @@ If you find this project useful, consider supporting its development:
 
 ## Installation
 
-See [installation guide](docs/Installation.md) for full installation, update, startup, and uninstall instructions for all platforms.
+See [installation guide](docs/Installation.md) for full installation, update, startup, and uninstall instructions for all platforms (upstream release).
+
+### This fork on Windows and macOS
+
+Both builds are on the [pre-release page](https://github.com/Beardowings/CleverSwitch/releases/tag/dev-feature-mouse-button-switch). Install CleverSwitch on **every** computer you switch between. No admin rights are needed.
+
+**Windows** (`cleverswitch_windows_x64.zip`)
+
+1. Unzip it and put `cleverswitch.exe` in a folder of your own, for example `C:\Users\<you>\Programs\CleverSwitch\cleverswitch.exe`.
+2. If endpoint protection blocks unknown programs, allow-list the exe by its SHA-256 (`Get-FileHash cleverswitch.exe` in PowerShell). Every build has a new hash.
+3. Double-click `cleverswitch.exe`. The icon appears in the tray (it may sit under the arrow next to the clock).
+4. In the menu, pick the **target channel** and turn on **Start at login**.
+
+**macOS** (`cleverswitch_macOS.tar.gz`, Apple silicon)
+
+1. Unpack it and move `CleverSwitch.app` to `/Applications`.
+2. Open it once with right-click → **Open** (the app is not notarized). If macOS still refuses, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+3. Allow **Input Monitoring** and **Bluetooth** for CleverSwitch when asked. If no prompt appears, add `/Applications/CleverSwitch.app` under **System Settings → Privacy & Security → Input Monitoring**, then quit and reopen it.
+4. The icon appears in the menu bar. Pick the **target channel** and turn on **Start at login**.
+
+To update, quit CleverSwitch from its menu, replace the exe or the app, and start it again. Settings stay in the config file.
 
 
 ## Hook Scripts
@@ -49,18 +81,21 @@ Each hook receives the following environment variables:
 | `CLEVERSWITCH_DEVICE`      | `keyboard` \| `mouse`                 | The device that triggered the event                |
 | `CLEVERSWITCH_DEVICE_NAME` | e.g. `MX Keys`                        | Human-readable device name                         |
 | `CLEVERSWITCH_TARGET_HOST` | `1`, `2`, or `3`                      | Target host number (1-based; `switch` events only) |
-| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge` \| `button`       | What started the switch (`switch` events only); for `edge` and `button`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
+| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge` \| `button` \| `follow` | What started the switch (`switch` events only); for `edge`, `button` and `follow`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
 
 ### Configuration
 
-CleverSwitch looks for its config file at:
+CleverSwitch reads its config file from:
 
-- **Linux / macOS:** `~/.config/cleverswitch/config.yaml`
-- **Windows:** `%USERPROFILE%\.config\cleverswitch\config.yaml`
+| Platform | Path |
+|----------|------|
+| Windows | `C:\Users\<you>\.config\cleverswitch\config.yaml` (`%USERPROFILE%\.config\cleverswitch\config.yaml`) |
+| macOS | `/Users/<you>/.config/cleverswitch/config.yaml` (`~/.config/cleverswitch/config.yaml`) |
+| Linux | `/home/<you>/.config/cleverswitch/config.yaml` (`~/.config/cleverswitch/config.yaml`) |
 
 You can override this path with the `--config` CLI flag.
 
-A starting point is provided in [`config.example.yaml`](config.example.yaml) — copy it to the path above and rename it to `config.yaml`.
+If the file does not exist, CleverSwitch creates it on first start (only for the default path, not with `--config`). On Windows and macOS the menu item **Advanced → Open config file** opens it. Every option is described in [`config.example.yaml`](config.example.yaml). Changes made in the menu are saved there at once; changes made by hand need a restart. The menu rewrites the file without comments.
 
 Each hook is a **named** entry with the following keys:
 
@@ -191,7 +226,22 @@ Press a mouse button (the thumb button by default) to switch the keyboard **and*
 
 ### Tray / menu bar icon (Windows, macOS)
 
-On Windows and macOS CleverSwitch shows an icon in the tray / menu bar. Its menu switches the feature on and off, picks the target channel (1–3) and the button, names the channels (e.g. "1 – Notebook", "2 – Mac"), opens Logi Options+, and turns **start at login** on or off (a `HKCU\…\Run` value on Windows, a LaunchAgent on macOS; no admin rights). Every change applies at once, without a restart, and is saved to the config file.
+On Windows and macOS CleverSwitch shows an icon in the tray / menu bar. The menu is in German or English, following the system language:
+
+| Menu item | What it does |
+|-----------|--------------|
+| Status line | The button and the target channel, or that the switch is off |
+| Switch with mouse button | Turns the mouse button switch on and off |
+| Target channel | The Easy-Switch channel (1–3) the button sends both devices to |
+| Name channels | Labels for the channels, e.g. "1 – Notebook", "2 – Mac" |
+| Button | Thumb, back, forward, middle or SmartShift button |
+| Mouse follows the keyboard's Easy-Switch keys | Optional, **off by default**; see [below](#mouse-follows-the-keyboard-optional) |
+| Open Logi Options+ | Starts Options+ when it is installed |
+| Start at login | A `HKCU\…\Software\Microsoft\Windows\CurrentVersion\Run` value on Windows, a LaunchAgent in `~/Library/LaunchAgents` on macOS; no admin rights |
+| Advanced | Divert the button itself, open the config file, open the log folder |
+| Quit CleverSwitch | Gives the button back to the mouse and exits |
+
+Every change applies at once, without a restart, and is saved to the config file.
 
 On first start, when there is no config file, CleverSwitch creates one with the mouse button switch on and no target channel; pick the channel in the menu. `--no-tray` runs without the icon.
 
@@ -212,9 +262,18 @@ mouse_button_switch:
 - With `divert: true` (default) CleverSwitch diverts the button over HID++ (0x1B04), so the button no longer does its normal action. The divert is temporary: the mouse forgets it on power-off and CleverSwitch un-diverts it on exit.
 - **Next to Logi Options+:** if Options+ already assigns an action to the same button, it diverts the button too, and both programs see the press. Then set `divert: false` and give the button a harmless action in Options+ (it still runs). If Options+ leaves the button on its default, `divert: true` should work without touching Options+ (not yet tested on hardware).
 - Every device that supports CHANGE_HOST (0x1814) is switched. A keyboard in deep sleep may miss the command; if it stays behind, press a key and switch again.
-- **Keyboard Easy-Switch keys next to Logi Options+:** if pressing an Easy-Switch key moves only the keyboard, Options+ has re-armed the keys after CleverSwitch, so the press is reported to Options+ alone. Turn on *Handle the keyboard's Easy-Switch keys myself* in the menu (or `easy_switch: {divert: true}`): the keys are then diverted, the keyboard stays until CleverSwitch has sent both devices, and a crash or power cycle gives the keys back.
-- **Keyboards that never report the Easy-Switch press** (MX Keys for Business, on Bolt and Bluetooth): the keyboard switches and this computer only sees it disconnect. Turn on *Mouse follows the keyboard's Easy-Switch keys* in the menu (or `follow_keyboard: true`): when the keyboard has been gone for 1.5 s while the mouse is still here, the mouse is sent to `host`. That is exact with two computers. Switching the keyboard off by hand sends the mouse away too; a switch CleverSwitch sent itself, a sleeping computer or an unplugged receiver does not.
+- **Keyboard Easy-Switch keys next to Logi Options+:** if pressing an Easy-Switch key moves only the keyboard, Options+ may have re-armed the keys after CleverSwitch, so the press is reported to Options+ alone. On keyboards whose Easy-Switch keys can be diverted, `easy_switch: {divert: true}` in the config file makes CleverSwitch divert them: the keyboard then stays until CleverSwitch has sent both devices, and a crash or power cycle gives the keys back. The `MX Keys for Business` cannot divert them (the log says `cannot divert its Easy-Switch keys`) and never reports the press; see [About this fork](#about-this-fork).
 - Editing the file by hand needs a restart; changes from the menu do not. Channel names live in `host_names` (`1: Notebook`).
+
+### Mouse follows the keyboard (optional)
+
+**Off by default**, and only worth trying when you switch between exactly two computers. For keyboards that never report the Easy-Switch press: when the keyboard leaves this computer and stays away for 1.5 s while the mouse is still connected, CleverSwitch sends the mouse to the target channel. Turn it on in the menu or with `follow_keyboard: true` under `mouse_button_switch`.
+
+It cannot know where the keyboard went, only that it left, so the mouse always goes to the one target channel:
+
+- With three channels in use, the mouse ends up on the wrong computer whenever the keyboard went to the other one.
+- Switching the keyboard off, or the keyboard losing range or battery, sends the mouse away too.
+- A switch CleverSwitch sent itself (the mouse button), a sleeping computer and an unplugged receiver are not followed.
 
 ## Logs
 
