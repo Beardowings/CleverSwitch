@@ -21,8 +21,11 @@ def mock_configure_logging(mocker):
 
 
 def test_setup_context_returns_app_context(mocker):
+    from cleverswitch.model.config.mouse_button_switch_config import MouseButtonSwitchConfig
+
     mocker.patch("cleverswitch.setup.app_setup.check")
-    mocker.patch("cleverswitch.setup.app_setup.cfg_module.load")
+    load = mocker.patch("cleverswitch.setup.app_setup.cfg_module.load")
+    load.return_value.mouse_button_switch = MouseButtonSwitchConfig()
     mocker.patch("cleverswitch.setup.app_setup.signal.signal")
 
     from cleverswitch.setup.app_setup import setup_context
