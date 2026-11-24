@@ -9,7 +9,7 @@ on:
     branches: ["feature/**"]
 
 permissions:
-  contents: read
+  contents: write  # each build attaches its archive to the branch's pre-release
 
 jobs:
   build:
@@ -19,7 +19,9 @@ jobs:
       matrix:
         include:
           - name: macos
-            os: macos-15
+            # Intel runner: GitHub's arm64 macOS runners are often short of capacity. The binary runs on
+            # Apple silicon through Rosetta 2.
+            os: macos-15-intel
             archive: cleverswitch_macOS.tar.gz
           - name: windows
             os: windows-latest
@@ -59,21 +61,9 @@ jobs:
           path: dist/${{ matrix.archive }}
           if-no-files-found: error
 
-  publish:
-    name: Publish pre-release
-    needs: build
-    # Publish whatever was built: a macOS runner shortage must not hold back the Windows build.
-    if: always()
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: assets
-          merge-multiple: true
-
-      - name: Create or update the pre-release for this branch
+      # Each platform publishes on its own, so a slow or missing runner never holds back the other build.
+      - name: Attach to the branch's pre-release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -81,12 +71,14 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          files=(assets/*)
-          [ ${#files[@]} -gt 0 ] || { echo "::error::No build artifacts to publish."; exit 1; }
           tag="dev-${BRANCH//\//-}"
-          notes="Test build of \`$BRANCH\` at ${SHA::7}. Not an official CleverSwitch release."
-          notes+=$'\n\nSHA-256:\n```\n'"$(cd assets && sha256sum *)"$'\n```'
-          gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          # A pre-release from an older commit is replaced, so its assets never mix with this build's.
+          old_target=$(gh release view "$tag" --repo "$REPO" --json targetCommitish -q .targetCommitish 2>/dev/null || true)
+          if [ -n "$old_target" ] && [ "$old_target" != "$SHA" ]; then
+            gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag
+          fi
           gh release create "$tag" --repo "$REPO" --prerelease --target "$SHA" \
-            --title "Test build: $BRANCH (${SHA::7})" --notes "$notes" "${files[@]}"
+            --title "Test build: $BRANCH (${SHA::7})" \
+            --notes "Test build of \`$BRANCH\` at ${SHA::7}. Not an official CleverSwitch release. SHA-256 of each archive is in the asset list." \
+            2>/dev/null || true
+          gh release upload "$tag" --repo "$REPO" --clobber "dist/${{ matrix.archive }}"
