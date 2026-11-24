@@ -81,7 +81,7 @@ class TrayController:
             MenuEntry(self._s.target_host, submenu=tuple(self._host_entries(config.target_host))),
             MenuEntry(self._s.name_hosts, submenu=tuple(self._rename_entries())),
             MenuEntry(self._s.button, submenu=tuple(self._button_entries(config.cid))),
-            MenuEntry(self._s.keyboard_divert, self.toggle_keyboard_divert, checked=self._settings.easy_switch_divert),
+            MenuEntry(self._s.follow_keyboard, self.toggle_follow_keyboard, checked=config.follow_keyboard),
             SEPARATOR,
             MenuEntry(
                 self._s.open_options_plus if options_plus else self._s.options_plus_missing,
@@ -122,8 +122,8 @@ class TrayController:
         self._settings.set_enabled(not self._settings.mouse_button_switch.enabled)
         self.refresh()
 
-    def toggle_keyboard_divert(self) -> None:
-        self._settings.set_easy_switch_divert(not self._settings.easy_switch_divert)
+    def toggle_follow_keyboard(self) -> None:
+        self._settings.set_follow_keyboard(not self._settings.mouse_button_switch.follow_keyboard)
         self.refresh()
 
     def toggle_divert(self) -> None:

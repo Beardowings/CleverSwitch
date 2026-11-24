@@ -9,6 +9,7 @@ class MouseButtonSwitchConfig:
     cid: int = DEFAULT_BUTTON_CID
     target_host: int | None = None  # 0-based; None until a host is chosen (a press then switches nothing)
     divert: bool = True  # False: only listen, for when a peer app (Logi Options+) already diverts the button
+    follow_keyboard: bool = False  # the mouse follows a keyboard that leaves by its own Easy-Switch key
 
     @property
     def armed(self) -> bool:

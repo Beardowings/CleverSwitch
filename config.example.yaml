@@ -79,11 +79,16 @@ hooks:
 #         false CleverSwitch only listens. Use this when Logi Options+ already diverts the button (any
 #               Options+ action except the button's native one); Options+ then performs its action as well,
 #               so give the button a harmless one.
+# follow_keyboard: true  The mouse follows the keyboard when it leaves this computer by its own Easy-Switch
+#               key (for keyboards that never report the press, e.g. MX Keys for Business): once the keyboard
+#               has been gone for 1.5 s while the mouse is still here, the mouse is sent to 'host'.
+#               Switching the keyboard off by hand sends the mouse away too. Default false.
 #
 # mouse_button_switch:
 #   button: gesture
 #   host: 2
 #   divert: true
+#   follow_keyboard: true
 #
 # Keyboard Easy-Switch keys: divert them instead of using analytics reporting, even on keyboards that
 # support analytics. Try this when an Easy-Switch key moves only the keyboard (e.g. next to Logi Options+).

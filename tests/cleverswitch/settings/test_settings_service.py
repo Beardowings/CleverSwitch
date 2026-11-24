@@ -66,14 +66,25 @@ def test_every_setter_is_saved(tmp_path):
     service.set_target_host(0)
     assert _saved(writer) == {
         "hooks": {},
-        "mouse_button_switch": {"enabled": False, "button": "forward", "host": 1, "divert": False},
+        "mouse_button_switch": {
+            "enabled": False,
+            "button": "forward",
+            "host": 1,
+            "divert": False,
+            "follow_keyboard": False,
+        },
     }
 
 
 def test_unknown_button_saved_as_hex_and_missing_host_left_out(tmp_path):
     service, _, writer = _service(tmp_path, mbs=MouseButtonSwitchConfig(enabled=True, target_host=None))
     service.set_button(0x01A0)
-    assert _saved(writer)["mouse_button_switch"] == {"enabled": True, "button": "0x01A0", "divert": True}
+    assert _saved(writer)["mouse_button_switch"] == {
+        "enabled": True,
+        "button": "0x01A0",
+        "divert": True,
+        "follow_keyboard": False,
+    }
 
 
 @pytest.mark.parametrize("host", [-1, 3])
@@ -119,3 +130,12 @@ def test_easy_switch_divert_saved_and_announced(tmp_path):
     assert _saved(writer)["easy_switch"] == {"divert": True}
     (event,) = [c.args[0] for c in topics.flags.publish.call_args_list]
     assert event == EasySwitchModeChangedEvent(slot=0, pid=0, divert=True)
+
+
+def test_follow_keyboard_saved_and_announced(tmp_path):
+    service, topics, writer = _service(tmp_path)
+    service.set_follow_keyboard(True)
+    assert service.mouse_button_switch.follow_keyboard is True
+    assert _saved(writer)["mouse_button_switch"]["follow_keyboard"] is True
+    (event,) = [c.args[0] for c in topics.flags.publish.call_args_list]
+    assert event.new.follow_keyboard is True

@@ -118,3 +118,16 @@ def test_easy_switch_divert(section, expected):
 
     raw = {} if section is None else {"easy_switch": section}
     assert _parse(raw, argparse.Namespace(verbose_extra=False)).easy_switch_divert is expected
+
+
+def test_follow_keyboard_defaults_off():
+    assert _mbs({"host": 1}).follow_keyboard is False
+
+
+def test_follow_keyboard_true():
+    assert _mbs({"host": 1, "follow_keyboard": True}).follow_keyboard is True
+
+
+def test_invalid_follow_keyboard_falls_back_to_false(caplog):
+    assert _mbs({"host": 1, "follow_keyboard": "ja"}).follow_keyboard is False
+    assert "'follow_keyboard'" in caplog.text

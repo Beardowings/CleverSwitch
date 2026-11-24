@@ -25,7 +25,7 @@ class Strings:
     options_plus_missing: str
     autostart: str
     advanced: str
-    keyboard_divert: str
+    follow_keyboard: str
     divert: str
     open_config: str
     open_logs: str
@@ -55,7 +55,7 @@ GERMAN = Strings(
     options_plus_missing="Logi Options+ nicht gefunden",
     autostart="Bei Anmeldung starten",
     advanced="Erweitert",
-    keyboard_divert="Easy-Switch-Tasten der Tastatur selbst steuern",
+    follow_keyboard="Maus folgt den Easy-Switch-Tasten der Tastatur",
     divert="Taste selbst umleiten",
     open_config="Konfigurationsdatei öffnen",
     open_logs="Log-Ordner öffnen",
@@ -85,7 +85,7 @@ ENGLISH = Strings(
     options_plus_missing="Logi Options+ not found",
     autostart="Start at login",
     advanced="Advanced",
-    keyboard_divert="Handle the keyboard's Easy-Switch keys myself",
+    follow_keyboard="Mouse follows the keyboard's Easy-Switch keys",
     divert="Divert the button myself",
     open_config="Open config file",
     open_logs="Open log folder",

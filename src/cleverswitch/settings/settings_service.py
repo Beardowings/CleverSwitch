@@ -81,6 +81,9 @@ class SettingsService:
     def set_divert(self, divert: bool) -> None:
         self._change_mouse_button_switch(divert=divert)
 
+    def set_follow_keyboard(self, follow: bool) -> None:
+        self._change_mouse_button_switch(follow_keyboard=follow)
+
     def _change_mouse_button_switch(self, **changes: Any) -> None:
         with self._lock:
             old = self._mouse_button_switch
@@ -117,7 +120,7 @@ def _describe(config: MouseButtonSwitchConfig) -> str:
     host = "none" if config.target_host is None else str(config.target_host + 1)
     return (
         f"enabled={config.enabled}, button CID 0x{config.cid:04X}, host {host}, "
-        f"{'divert' if config.divert else 'listen only'}"
+        f"{'divert' if config.divert else 'listen only'}, follow keyboard={config.follow_keyboard}"
     )
 
 
@@ -133,6 +136,7 @@ def _store_mouse_button_switch(raw: dict[str, Any], config: MouseButtonSwitchCon
     else:
         section["host"] = config.target_host + 1
     section["divert"] = config.divert
+    section["follow_keyboard"] = config.follow_keyboard
 
 
 def _store_easy_switch(raw: dict[str, Any], divert: bool) -> None:

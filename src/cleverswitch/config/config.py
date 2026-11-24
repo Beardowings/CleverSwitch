@@ -39,7 +39,7 @@ _MAX_SIZE_MB_RANGE = (1, 1024)
 _BACKUP_COUNT_RANGE = (1, 50)
 _COOLDOWN_MS_RANGE = (0, 60000)
 _EDGE_SWITCH_KEYS = frozenset({"enabled", "modifier", "cooldown_ms", "edges"})
-_MOUSE_BUTTON_SWITCH_KEYS = frozenset({"enabled", "button", "host", "divert"})
+_MOUSE_BUTTON_SWITCH_KEYS = frozenset({"enabled", "button", "host", "divert", "follow_keyboard"})
 _VALID_HOSTS = frozenset(HOST_SWITCH_CIDS.values())
 _HOST_RANGE = f"{min(_VALID_HOSTS) + 1}..{max(_VALID_HOSTS) + 1}"
 
@@ -236,6 +236,11 @@ def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
         log.error(f"mouse_button_switch 'divert' must be true or false, not '{divert}'; using {defaults.divert}")
         divert = defaults.divert
 
+    follow_keyboard = section.get("follow_keyboard", defaults.follow_keyboard)
+    if not isinstance(follow_keyboard, bool):
+        log.error(f"mouse_button_switch 'follow_keyboard' must be true or false, not '{follow_keyboard}'; using false")
+        follow_keyboard = False
+
     cid = _parse_button(section.get("button", "gesture"))
     if enabled and cid is None:
         log.error("mouse_button_switch disabled: no valid 'button'")
@@ -257,6 +262,7 @@ def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
         cid=cid if cid is not None else defaults.cid,
         target_host=target_host,
         divert=divert,
+        follow_keyboard=follow_keyboard,
     )
 
 

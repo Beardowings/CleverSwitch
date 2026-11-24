@@ -25,6 +25,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,
         "button": "gesture",
         "divert": True,
+        "follow_keyboard": True,
     },
 }
 

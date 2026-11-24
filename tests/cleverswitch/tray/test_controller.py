@@ -68,7 +68,7 @@ def test_menu_layout():
         GERMAN.target_host,
         GERMAN.name_hosts,
         GERMAN.button,
-        GERMAN.keyboard_divert,
+        GERMAN.follow_keyboard,
         GERMAN.open_options_plus,
         GERMAN.autostart,
         GERMAN.advanced,
@@ -182,8 +182,8 @@ def test_every_known_button_has_a_label(cid):
     assert not controller.button_label(cid).startswith("CID")
 
 
-def test_toggle_keyboard_divert():
+def test_toggle_follow_keyboard():
     controller, settings, *_ = _controller()
-    _find(controller.menu(), GERMAN.keyboard_divert).action()
-    assert settings.easy_switch_divert is True
-    assert _find(controller.menu(), GERMAN.keyboard_divert).checked is True
+    _find(controller.menu(), GERMAN.follow_keyboard).action()
+    assert settings.mouse_button_switch.follow_keyboard is True
+    assert _find(controller.menu(), GERMAN.follow_keyboard).checked is True

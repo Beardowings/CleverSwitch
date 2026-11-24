@@ -8,6 +8,7 @@ class SwitchSource(StrEnum):
     DEVICE = "device"
     EDGE = "edge"
     BUTTON = "button"
+    FOLLOW = "follow"  # the keyboard left by its own Easy-Switch key; the mouse is sent after it
 
 
 @dataclasses.dataclass

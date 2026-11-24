@@ -28,6 +28,7 @@ from ..subscriber.event_hook_subscriber import EventHookSubscriber
 from ..subscriber.external_unset_flag_subscriber import ExternalUnsetFlagSubscriber
 from ..subscriber.host_change_subscriber import HostChangeSubscriber
 from ..subscriber.info_task_orchestrator import InfoTaskOrchestrator
+from ..subscriber.keyboard_follow_subscriber import KeyboardFollowSubscriber
 from ..subscriber.mouse_button_switch_subscriber import MouseButtonSwitchSubscriber
 from ..subscriber.receiver_arming_subscriber import ReceiverArmingSubscriber
 from ..subscriber.set_report_flag_subscriber import SetReportFlagSubscriber
@@ -146,3 +147,7 @@ def _init_subscribers(
         EdgeSwitchSubscriber(config.edge_switch, topics, echo_guard, stopping)
     # Always present: the tray can switch the feature on at runtime.
     MouseButtonSwitchSubscriber(config.mouse_button_switch, device_registry, topics, cache, echo_guard, stopping)
+    current_mbs = (
+        (lambda: settings.mouse_button_switch) if settings is not None else (lambda: config.mouse_button_switch)
+    )
+    KeyboardFollowSubscriber(device_registry, topics, current_mbs, echo_guard, stopping)
