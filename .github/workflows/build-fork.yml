@@ -58,3 +58,35 @@ jobs:
           name: cleverswitch-${{ matrix.name }}-${{ github.sha }}
           path: dist/${{ matrix.archive }}
           if-no-files-found: error
+
+  publish:
+    name: Publish pre-release
+    needs: build
+    # Publish whatever was built: a macOS runner shortage must not hold back the Windows build.
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Create or update the pre-release for this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(assets/*)
+          [ ${#files[@]} -gt 0 ] || { echo "::error::No build artifacts to publish."; exit 1; }
+          tag="dev-${BRANCH//\//-}"
+          notes="Test build of \`$BRANCH\` at ${SHA::7}. Not an official CleverSwitch release."
+          notes+=$'\n\nSHA-256:\n```\n'"$(cd assets && sha256sum *)"$'\n```'
+          gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$tag" --repo "$REPO" --prerelease --target "$SHA" \
+            --title "Test build: $BRANCH (${SHA::7})" --notes "$notes" "${files[@]}"
