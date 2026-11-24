@@ -16,3 +16,5 @@ class Config:
     logging: LoggingConfig = dataclasses.field(default_factory=LoggingConfig)
     edge_switch: EdgeSwitchConfig = dataclasses.field(default_factory=EdgeSwitchConfig)
     mouse_button_switch: MouseButtonSwitchConfig = dataclasses.field(default_factory=MouseButtonSwitchConfig)
+    host_names: dict[int, str] = dataclasses.field(default_factory=dict)  # 0-based host → user label
+    config_path: Path | None = None  # the YAML file this config was (or would be) read from

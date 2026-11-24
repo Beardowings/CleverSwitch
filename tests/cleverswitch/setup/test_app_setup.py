@@ -20,6 +20,11 @@ def mock_configure_logging(mocker):
     return mocker.patch("cleverswitch.setup.app_setup.configure_logging")
 
 
+@pytest.fixture(autouse=True)
+def mock_ensure_config_file(mocker):
+    return mocker.patch("cleverswitch.setup.app_setup.ensure_config_file")
+
+
 def test_setup_context_returns_app_context(mocker):
     from cleverswitch.model.config.mouse_button_switch_config import MouseButtonSwitchConfig
 
@@ -127,7 +132,7 @@ def test_shutdown_signal_handler_skips_set_when_already_shutting_down(mocker):
     spy.assert_not_called()
 
 
-def test_mouse_button_switch_subscriber_only_when_enabled(mocker):
+def test_mouse_button_switch_subscriber_always_created(mocker):
     import threading
 
     from cleverswitch.model.config.mouse_button_switch_config import MouseButtonSwitchConfig
@@ -137,11 +142,30 @@ def test_mouse_button_switch_subscriber_only_when_enabled(mocker):
     topics = app_setup._setup_topics()
     config = mocker.MagicMock()
     config.edge_switch.enabled = False
-
     config.mouse_button_switch = MouseButtonSwitchConfig()
-    app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event())
-    created.assert_not_called()
 
-    config.mouse_button_switch = MouseButtonSwitchConfig(enabled=True, target_host=1)
     app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event())
+
     created.assert_called_once()
+
+
+def test_default_config_file_created_only_without_cli_path(mocker, mock_ensure_config_file):
+    from cleverswitch.setup import app_setup
+
+    mocker.patch("cleverswitch.setup.app_setup.cfg_module.load")
+    mocker.patch("cleverswitch.setup.app_setup.cfg_module.default_config_path", return_value="default")
+
+    app_setup._load_config(_cli_args())
+    mock_ensure_config_file.assert_called_once_with("default")
+
+    mock_ensure_config_file.reset_mock()
+    app_setup._load_config(_cli_args(config="/x.yaml"))
+    mock_ensure_config_file.assert_not_called()
+
+
+def test_setup_settings_without_config_path_has_no_writer(mocker):
+    from cleverswitch.model.config.config import Config
+    from cleverswitch.setup import app_setup
+
+    config = Config(hooks=mocker.MagicMock(), arguments_settings=mocker.MagicMock(), cache_path=mocker.MagicMock())
+    assert app_setup._setup_settings(config, app_setup._setup_topics()).config_path is None

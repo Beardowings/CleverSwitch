@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           ls dist
-          if [ -f dist/cleverswitch.exe ]; then dist/cleverswitch.exe --version; else dist/cleverswitch --version; fi
+          if [ -f dist/cleverswitch.exe ]; then dist/cleverswitch.exe --version; else dist/CleverSwitch.app/Contents/MacOS/CleverSwitch --version; fi
           files=$(find dist -maxdepth 1 -type f)
           if command -v sha256sum >/dev/null; then sha256sum $files; else shasum -a 256 $files; fi
 

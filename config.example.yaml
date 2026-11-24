@@ -68,6 +68,7 @@ hooks:
 
 # Mouse button switch (optional)
 # Pressing the chosen mouse button switches every device (keyboard and mouse) to 'host'.
+# On Windows and macOS the tray / menu bar icon changes all of this at runtime and saves it here.
 # Run CleverSwitch on every computer, each with the host of the OTHER computer, e.g.
 # host: 2 on the computer on channel 1, host: 1 on the computer on channel 2.
 #
@@ -83,3 +84,8 @@ hooks:
 #   button: gesture
 #   host: 2
 #   divert: true
+#
+# Channel names shown in the tray / menu bar menu (optional; the menu edits them too):
+# host_names:
+#   1: Notebook
+#   2: Mac

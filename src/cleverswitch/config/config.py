@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import os
 from pathlib import Path
@@ -63,7 +64,7 @@ def load(cli_args: argparse.Namespace) -> Config:
     if not cfg_path.exists():
         if path:
             raise ConfigError(f"Config file not found: {cfg_path}")
-        return _parse({}, cli_args)
+        return dataclasses.replace(_parse({}, cli_args), config_path=cfg_path)
 
     try:
         with open(cfg_path) as f:
@@ -75,7 +76,7 @@ def load(cli_args: argparse.Namespace) -> Config:
         raise ConfigError(f"Config error in {cfg_path}: top level must be a mapping")
 
     try:
-        return _parse(raw, cli_args)
+        return dataclasses.replace(_parse(raw, cli_args), config_path=cfg_path)
     except (KeyError, TypeError, ValueError) as e:
         raise ConfigError(f"Config error in {cfg_path}: {e}") from e
 
@@ -101,8 +102,13 @@ def _parse(raw: dict[str, Any], cli_args: argparse.Namespace) -> Config:
         logging=_parse_logging(raw),
         edge_switch=_parse_edge_switch(raw),
         mouse_button_switch=_parse_mouse_button_switch(raw),
+        host_names=_parse_host_names(raw),
     )
     return config
+
+
+def default_config_path() -> Path:
+    return _DEFAULT_CONFIG_PATH
 
 
 def _section(raw: dict[str, Any], key: str) -> dict[str, Any]:
@@ -235,7 +241,9 @@ def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
         enabled = False
 
     host = section.get("host")
-    if isinstance(host, bool) or not isinstance(host, int) or host - 1 not in _VALID_HOSTS:
+    if host is None:
+        target_host = None  # chosen later from the tray menu; a press switches nothing until then
+    elif isinstance(host, bool) or not isinstance(host, int) or host - 1 not in _VALID_HOSTS:
         if enabled:
             log.error(f"mouse_button_switch disabled: invalid 'host' '{host}' (expected {_HOST_RANGE})")
         enabled = False
@@ -249,6 +257,24 @@ def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
         target_host=target_host,
         divert=divert,
     )
+
+
+def _parse_host_names(raw: dict[str, Any]) -> dict[int, str]:
+    section = raw.get("host_names")
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        log.error(f"'host_names' must be a mapping, not {type(section).__name__}; ignoring it")
+        return {}
+    names: dict[int, str] = {}
+    for key, value in section.items():
+        if isinstance(key, bool) or not isinstance(key, int) or key - 1 not in _VALID_HOSTS:
+            log.warning(f"host_names has invalid host '{key}' (expected {_HOST_RANGE}); ignoring it")
+            continue
+        if value is None or not str(value).strip():
+            continue
+        names[key - 1] = str(value).strip()
+    return names
 
 
 def _parse_button(raw_button: Any) -> int | None:

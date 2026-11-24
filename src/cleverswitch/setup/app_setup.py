@@ -8,12 +8,14 @@ from .. import __version__
 from ..cache.device_cache import DeviceCache
 from ..config import config as cfg_module
 from ..config.config import Config
+from ..config.config_file import ConfigFileWriter, ensure_config_file
 from ..errors.errors import ConfigError
 from ..log.log_setup import configure_logging
 from ..model.config.logging_config import LoggingConfig
 from ..model.context.app_context import AppContext
 from ..model.switch_echo_guard import SwitchEchoGuard
 from ..registry.logi_device_registry import LogiDeviceRegistry
+from ..settings.settings_service import SettingsService
 from ..subscriber.analytics_rejection_subscriber import AnalyticsRejectionSubscriber
 from ..subscriber.change_host_notification_subscriber import ChangeHostNotificationSubscriber
 from ..subscriber.channel_rearm_subscriber import ChannelRearmSubscriber
@@ -46,12 +48,17 @@ def setup_context(args: argparse.Namespace) -> AppContext:
     topics = _setup_topics()
     registry = _setup_logi_device_registry()
     cache = _setup_device_cache(config)
+    settings = _setup_settings(config, topics)
     _init_subscribers(topics, registry, config, cache, shutdown)
-    return AppContext(registry, topics, config, shutdown)
+    return AppContext(registry, topics, config, shutdown, settings)
 
 
 def _load_config(args: argparse.Namespace) -> Config:
     verbose = bool(args.verbose or args.verbose_extra)
+    if args.config is None:
+        # Nobody should have to create a file by hand; logging is not configured yet, so this is
+        # reported through the startup buffer and replayed into the log file.
+        ensure_config_file(cfg_module.default_config_path())
     try:
         config = cfg_module.load(args)
     except ConfigError as e:
@@ -92,6 +99,11 @@ def _setup_topics() -> Topics:
     )
 
 
+def _setup_settings(config: Config, topics: Topics) -> SettingsService:
+    writer = ConfigFileWriter(config.config_path) if config.config_path is not None else None
+    return SettingsService(config, topics, writer)
+
+
 def _setup_logi_device_registry() -> LogiDeviceRegistry:
     return LogiDeviceRegistry()
 
@@ -128,5 +140,5 @@ def _init_subscribers(
     EventHookSubscriber(config.hooks, device_registry, topics, cache)
     if config.edge_switch.enabled:
         EdgeSwitchSubscriber(config.edge_switch, topics, echo_guard, stopping)
-    if config.mouse_button_switch.enabled:
-        MouseButtonSwitchSubscriber(config.mouse_button_switch, device_registry, topics, cache, echo_guard, stopping)
+    # Always present: the tray can switch the feature on at runtime.
+    MouseButtonSwitchSubscriber(config.mouse_button_switch, device_registry, topics, cache, echo_guard, stopping)

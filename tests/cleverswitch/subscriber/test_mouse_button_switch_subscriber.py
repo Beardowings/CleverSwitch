@@ -9,6 +9,7 @@ from cleverswitch.event.hidpp_error_event import HidppErrorEvent
 from cleverswitch.event.hidpp_notification_event import HidppNotificationEvent
 from cleverswitch.event.host_change_event import HostChangeEvent, SwitchSource
 from cleverswitch.event.info_task_progress_event import InfoTaskProgressEvent
+from cleverswitch.event.mouse_button_switch_changed_event import MouseButtonSwitchChangedEvent
 from cleverswitch.event.set_report_flag_event import SetReportFlagEvent
 from cleverswitch.event.transport_disconnected_event import TransportDisconnectedEvent
 from cleverswitch.event.write_event import WriteEvent
@@ -51,7 +52,15 @@ def _mouse(*, reprog_idx: int | None = REPROG_IDX, role: str | None = ROLE_MOUSE
     return device
 
 
-def _setup(device: LogiDevice | None = None, *, divert=True, cached: LogiDevice | None = None, stopping=False):
+def _setup(
+    device: LogiDevice | None = None,
+    *,
+    divert=True,
+    cached: LogiDevice | None = None,
+    stopping=False,
+    enabled=True,
+    target=TARGET,
+):
     registry = LogiDeviceRegistry()
     if device is not None:
         registry.register(device.wpid, device)
@@ -59,7 +68,7 @@ def _setup(device: LogiDevice | None = None, *, divert=True, cached: LogiDevice 
     cache = MagicMock()
     cache.find_by_wpid.return_value = cached
     guard = MagicMock()
-    config = MouseButtonSwitchConfig(enabled=True, cid=CID, target_host=TARGET, divert=divert)
+    config = MouseButtonSwitchConfig(enabled=enabled, cid=CID, target_host=target, divert=divert)
     sub = MouseButtonSwitchSubscriber(config, registry, topics, cache, guard, lambda: stopping)
     return sub, topics, cache, guard
 
@@ -330,3 +339,124 @@ def test_logs_its_settings_at_startup(caplog):
     with caplog.at_level(logging.INFO):
         _setup()
     assert "Mouse button switch on: button CID 0x00C3 → host 2 (divert)" in caplog.text
+
+
+def test_logs_when_off_and_when_no_host_is_chosen(caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO):
+        _setup(enabled=False)
+        _setup(target=None)
+    assert "Mouse button switch off" in caplog.text
+    assert "→ no host chosen yet (divert)" in caplog.text
+
+
+# ── Runtime changes (tray menu) ─────────────────────────────────────────────
+
+_ON = MouseButtonSwitchConfig(enabled=True, cid=CID, target_host=TARGET, divert=True)
+
+
+def _change(sub, old: MouseButtonSwitchConfig, new: MouseButtonSwitchConfig) -> None:
+    sub.notify(MouseButtonSwitchChangedEvent(slot=0, pid=0, old=old, new=new))
+
+
+def test_press_while_disabled_does_nothing():
+    sub, topics, _, _ = _setup(_mouse(), enabled=False)
+    sub.notify(_press([CID]))
+    assert _published_host_changes(topics) == []
+
+
+def test_press_without_target_host_warns_and_does_nothing(caplog):
+    sub, topics, _, guard = _setup(_mouse(), target=None)
+    sub.notify(_press([CID]))
+    assert _published_host_changes(topics) == []
+    guard.record.assert_not_called()
+    assert "no target host is set" in caplog.text
+
+
+def test_flags_event_while_disabled_writes_nothing():
+    sub, topics, _, _ = _setup(_mouse(), enabled=False)
+    sub.notify(SetReportFlagEvent(slot=SLOT, pid=PID, wpid=WPID))
+    assert _written(topics) == []
+
+
+def test_switching_off_undiverts_the_button():
+    sub, topics, _, _ = _setup(_mouse())
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=False, cid=CID, target_host=TARGET))
+    (msg,) = _written(topics)
+    assert msg[4:7] == bytes([0x00, 0xC3, 0x02])
+
+
+def test_switching_on_diverts_the_button():
+    sub, topics, _, _ = _setup(_mouse(), enabled=False)
+    _change(sub, MouseButtonSwitchConfig(enabled=False, cid=CID, target_host=TARGET), _ON)
+    (msg,) = _written(topics)
+    assert msg[4:7] == bytes([0x00, 0xC3, 0x03])
+    sub.notify(_press([CID]))
+    assert len(_published_host_changes(topics)) == 1
+
+
+def test_changing_the_button_moves_the_divert():
+    sub, topics, _, _ = _setup(_mouse())
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=True, cid=0x0056, target_host=TARGET))
+    released, armed = _written(topics)
+    assert released[4:7] == bytes([0x00, 0xC3, 0x02])
+    assert armed[4:7] == bytes([0x00, 0x56, 0x03])
+    sub.notify(_press([CID]))
+    assert _published_host_changes(topics) == []
+    sub.notify(_press([0x0056]))
+    assert len(_published_host_changes(topics)) == 1
+
+
+def test_changing_only_the_host_writes_nothing_and_uses_the_new_host():
+    sub, topics, _, _ = _setup(_mouse())
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=True, cid=CID, target_host=2))
+    assert _written(topics) == []
+    sub.notify(_press([CID]))
+    (event,) = _published_host_changes(topics)
+    assert event.target_host == 2
+
+
+def test_turning_divert_off_releases_the_button():
+    sub, topics, _, _ = _setup(_mouse())
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=True, cid=CID, target_host=TARGET, divert=False))
+    (msg,) = _written(topics)
+    assert msg[4:7] == bytes([0x00, 0xC3, 0x02])
+
+
+@pytest.mark.parametrize("device", [_mouse(connected=False), _mouse(role=ROLE_KEYBOARD)])
+def test_change_skips_disconnected_mice_and_keyboards(device):
+    sub, topics, _, _ = _setup(device)
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=False, cid=CID, target_host=TARGET))
+    assert _written(topics) == []
+
+
+def test_switching_on_resolves_a_mouse_without_reprog():
+    device = _mouse(reprog_idx=None)
+    sub, topics, _, _ = _setup(device, enabled=False)
+    with patch(_TASK) as task_cls:
+        _change(sub, MouseButtonSwitchConfig(enabled=False, cid=CID, target_host=TARGET), _ON)
+    task_cls.assert_called_once_with(device, topics)
+    assert _written(topics) == []
+
+
+def test_disabled_does_not_resolve():
+    device = _mouse(reprog_idx=None)
+    sub, _, _, _ = _setup(device, enabled=False)
+    with patch(_TASK) as task_cls:
+        sub.notify(_progress(device))
+    task_cls.assert_not_called()
+
+
+def test_change_while_stopping_writes_nothing():
+    sub, topics, _, _ = _setup(_mouse(), stopping=True)
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=False, cid=CID, target_host=TARGET))
+    assert _written(topics) == []
+
+
+def test_change_clears_held_state():
+    sub, topics, _, _ = _setup(_mouse())
+    sub.notify(_press([CID]))
+    _change(sub, _ON, MouseButtonSwitchConfig(enabled=True, cid=CID, target_host=2))
+    sub.notify(_press([CID]))
+    assert len(_published_host_changes(topics)) == 2

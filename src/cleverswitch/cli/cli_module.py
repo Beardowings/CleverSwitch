@@ -16,12 +16,15 @@ from ..hidpp.transport import hidapi_version
 from ..log.log_setup import bootstrap_logging, configure_logging
 from ..model.config.logging_config import LoggingConfig
 from ..setup.app_setup import setup_context
+from ..tray.runner import run_tray
+from ..util.console import attach_console_streams
 from ..util.util import get_system
 
 _SYSTEM = get_system()
 
 
 def main() -> None:
+    attach_console_streams()  # a windowed build has no stdout/stderr until it borrows its parent's
     args = _parse_args()
 
     verbose = args.verbose or args.verbose_extra
@@ -49,6 +52,9 @@ def main() -> None:
         )
 
         discovery_thread.start()
+        # The tray icon needs the main thread (AppKit insists); without one, just wait for discovery.
+        if not args.no_tray:
+            run_tray(app_context, discovery_thread, _SYSTEM)  # returns once discovery is ending
         discovery_thread.join()
     except CleverSwitchError as e:
         failures.append(e)
@@ -79,6 +85,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("-v", "--verbose", action="store_true", help="force DEBUG logging")
     p.add_argument("-vv", "--verbose-extra", action="store_true", help="force DEBUG logging including discovery")
     p.add_argument("--clear-cache", action="store_true", help="delete the discovered-device cache and exit")
+    p.add_argument("--no-tray", action="store_true", help="run without the tray / menu bar icon")
     p.add_argument(
         "--version",
         action="version",

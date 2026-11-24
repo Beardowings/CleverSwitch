@@ -234,6 +234,12 @@ MouseButtonSwitchSubscriber (hid_event) ── divertedButtonsEvent containing t
 - Arming rides on `SetReportFlagEvent`, which the reconnection path, `ChannelRearmSubscriber` and `_undivert_all` already publish for every device with x1B04; `SetReportFlagSubscriber` skips mice silently (they have no ES flags).
 - `divert: false` arms nothing and only listens: a peer app (Logi Options+) that diverts the button makes the device send the press to every open handle.
 - Hooks report a BUTTON switch like an EDGE switch (representative device). The echo guard records the target.
+- Runtime changes: `SettingsService` (`settings/settings_service.py`, built in `setup_context`, on `AppContext.settings`) holds the live `MouseButtonSwitchConfig` and `host_names`, saves each change through `ConfigFileWriter` (`config/config_file.py`, atomic YAML rewrite of the one file the config came from) and publishes `MouseButtonSwitchChangedEvent(old, new)` on `flags`. The subscriber is therefore always created; it reads its config under its lock, moves or releases the divert on connected mice, and starts x1B04 resolution when the feature is switched on. `target_host` may be `None` (no host chosen): a press then only logs a warning.
+- First start: `_load_config` writes `config_file.DEFAULT_CONFIG` to the default path when no `-c` was given and the file is missing.
+
+### Tray
+
+`tray/` (Windows and macOS; `--no-tray` turns it off). `cli_module.main` starts discovery on its thread and runs `tray.runner.run_tray` on the main thread (AppKit requires it); a watcher thread stops the icon when discovery ends, and the icon going away sets `shutdown`. `TrayController` builds the menu as plain `MenuEntry` data and owns every action (tested); `pystray_tray.PystrayTray` renders it with pystray (coverage-excluded GUI glue: on macOS a subclass sets a template image, the accessory activation policy, and delivers SIGINT/SIGTERM through `MachSignals` so shutdown still un-diverts; UI updates go through `AppHelper.callAfter`). `autostart.py` writes HKCU Run / a LaunchAgent with the label `setup_startup.command` uses; `desktop.py` finds and opens Logi Options+ and asks for channel names (osascript / tkinter, off the menu thread). Strings are German or English by system language (`strings.py`). The macOS build is `CleverSwitch.app` (`LSUIElement`, `NSBluetoothAlwaysUsageDescription`, re-signed ad hoc); the Windows exe is `--noconsole` and `util/console.py` borrows the parent's console or redirected handles for `--version` and `-v`.
 
 ### Logging
 

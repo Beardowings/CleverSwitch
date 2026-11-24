@@ -39,9 +39,15 @@ def test_invalid_button_disables(button, caplog):
     assert _mbs({"host": 1, "button": button}).enabled is False
 
 
-@pytest.mark.parametrize("host", [None, 0, 4, "2", True])
+def test_missing_host_stays_enabled_without_target():
+    config = _mbs({})
+    assert config.enabled is True
+    assert config.target_host is None
+
+
+@pytest.mark.parametrize("host", [0, 4, "2", True])
 def test_invalid_host_disables(host):
-    section = {} if host is None else {"host": host}
+    section = {"host": host}
     assert _mbs(section).enabled is False
 
 
@@ -70,3 +76,32 @@ def test_non_mapping_disables(caplog):
 def test_unknown_key_warns(caplog):
     assert _mbs({"host": 2, "hots": 1}).enabled is True
     assert "unknown key 'hots'" in caplog.text
+
+
+# ── host_names ───────────────────────────────────────────────────────────────
+
+
+def _names(section):
+    import argparse
+
+    from cleverswitch.config.config import _parse
+
+    return _parse({"host_names": section}, argparse.Namespace(verbose_extra=False)).host_names
+
+
+def test_host_names_parsed_zero_based():
+    assert _names({1: "Notebook", 3: " Mac "}) == {0: "Notebook", 2: "Mac"}
+
+
+def test_host_names_skip_invalid_and_empty_entries(caplog):
+    assert _names({0: "x", 4: "y", "1": "z", True: "t", 2: "", 3: None}) == {}
+    assert "host_names has invalid host" in caplog.text
+
+
+def test_host_names_not_a_mapping(caplog):
+    assert _names(["a"]) == {}
+    assert "'host_names' must be a mapping" in caplog.text
+
+
+def test_host_names_missing():
+    assert _names(None) == {}

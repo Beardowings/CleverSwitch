@@ -187,7 +187,19 @@ Anything else is one of: `Edge switch is not running: …` (with the reason, ret
 
 ## Mouse Button Switch
 
-Press a mouse button (the thumb button by default) to switch the keyboard **and** the mouse to another host. It is off until you add a `mouse_button_switch` section to the config:
+Press a mouse button (the thumb button by default) to switch the keyboard **and** the mouse to another host.
+
+### Tray / menu bar icon (Windows, macOS)
+
+On Windows and macOS CleverSwitch shows an icon in the tray / menu bar. Its menu switches the feature on and off, picks the target channel (1–3) and the button, names the channels (e.g. "1 – Notebook", "2 – Mac"), opens Logi Options+, and turns **start at login** on or off (a `HKCU\…\Run` value on Windows, a LaunchAgent on macOS; no admin rights). Every change applies at once, without a restart, and is saved to the config file.
+
+On first start, when there is no config file, CleverSwitch creates one with the mouse button switch on and no target channel; pick the channel in the menu. `--no-tray` runs without the icon.
+
+macOS ships as `CleverSwitch.app` (menu bar only, no Dock icon). Input Monitoring and Bluetooth permissions then belong to CleverSwitch itself.
+
+### Config
+
+The same settings in the config file:
 
 ```yaml
 mouse_button_switch:
@@ -200,7 +212,7 @@ mouse_button_switch:
 - With `divert: true` (default) CleverSwitch diverts the button over HID++ (0x1B04), so the button no longer does its normal action. The divert is temporary: the mouse forgets it on power-off and CleverSwitch un-diverts it on exit.
 - **Next to Logi Options+:** if Options+ already assigns an action to the same button, it diverts the button too, and both programs see the press. Then set `divert: false` and give the button a harmless action in Options+ (it still runs). If Options+ leaves the button on its default, `divert: true` should work without touching Options+ (not yet tested on hardware).
 - Every device that supports CHANGE_HOST (0x1814) is switched. A keyboard in deep sleep may miss the command; if it stays behind, press a key and switch again.
-- Editing `mouse_button_switch` needs a restart.
+- Editing the file by hand needs a restart; changes from the menu do not. Channel names live in `host_names` (`1: Notebook`).
 
 ## Logs
 
