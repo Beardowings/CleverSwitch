@@ -49,7 +49,7 @@ Each hook receives the following environment variables:
 | `CLEVERSWITCH_DEVICE`      | `keyboard` \| `mouse`                 | The device that triggered the event                |
 | `CLEVERSWITCH_DEVICE_NAME` | e.g. `MX Keys`                        | Human-readable device name                         |
 | `CLEVERSWITCH_TARGET_HOST` | `1`, `2`, or `3`                      | Target host number (1-based; `switch` events only) |
-| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge`                  | What started the switch (`switch` events only); for `edge`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
+| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge` \| `button`       | What started the switch (`switch` events only); for `edge` and `button`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
 
 ### Configuration
 
@@ -184,6 +184,23 @@ Watching screen edges (edge-linux)
 ```
 
 Anything else is one of: `Edge switch is not running: …` (with the reason, retried on the next device connection), `Edge switch cannot read any keyboard or mouse in /dev/input` (the udev rule or group, then restart), or `still unavailable` after a retry. On KDE and GNOME the message names the missing or disabled extension. To check the gesture itself without switching hosts, hold the modifier and move onto an edge while watching the log — the trace says what the detector saw.
+
+## Mouse Button Switch
+
+Press a mouse button (the thumb button by default) to switch the keyboard **and** the mouse to another host. It is off until you add a `mouse_button_switch` section to the config:
+
+```yaml
+mouse_button_switch:
+  button: gesture   # gesture (thumb) | back | forward | middle | smartshift, or a CID such as 0x00C3
+  host: 2           # 1..3, the Easy-Switch channel to switch to
+  divert: true      # false: only listen while Logi Options+ diverts the button
+```
+
+- Run CleverSwitch on every computer, each pointing at the **other** one: `host: 2` on the computer on channel 1, `host: 1` on the computer on channel 2.
+- With `divert: true` (default) CleverSwitch diverts the button over HID++ (0x1B04), so the button no longer does its normal action. The divert is temporary: the mouse forgets it on power-off and CleverSwitch un-diverts it on exit.
+- **Next to Logi Options+:** if Options+ already assigns an action to the same button, it diverts the button too, and both programs see the press. Then set `divert: false` and give the button a harmless action in Options+ (it still runs). If Options+ leaves the button on its default, `divert: true` should work without touching Options+ (not yet tested on hardware).
+- Every device that supports CHANGE_HOST (0x1814) is switched. A keyboard in deep sleep may miss the command; if it stays behind, press a key and switch again.
+- Editing `mouse_button_switch` needs a restart.
 
 ## Logs
 

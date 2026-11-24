@@ -219,6 +219,22 @@ HostChangeSubscriber (unchanged, the only CHANGE_HOST sender) ──▶ every de
 - **Echo guard**: `SwitchEchoGuard` (`model/switch_echo_guard.py`) is shared by `EdgeSwitchSubscriber` (records the target) and `ChangeHostNotificationSubscriber`, which drops an x1814 announcement of the same target within 2 s. Whether devices announce a switch they were told to make is unconfirmed; the guard keeps it from causing a second switch burst and a second SWITCH hook. A genuine press to that same host inside the window is dropped too — acceptable, because every device was just told to go there, so only a redundant repair is lost; a press to any other host passes at once.
 - **Known risk**: the switch is sent while the modifier is held, so the departing host may never see it released (the user accepted this).
 
+### Mouse button switch
+
+Optional third way to start a switch (`mouse_button_switch` config section, off unless present): pressing the configured mouse button (CID, default the thumb button 0x00C3) switches every device to the configured host.
+
+```
+MouseReprogFeatureTask (x1B04 on mice; discovery resolves it for keyboards only) ──▶ flags: SetReportFlagEvent
+MouseButtonSwitchSubscriber (flags) ── setCidReporting divert of the one CID (unless divert: false)
+MouseButtonSwitchSubscriber (hid_event) ── divertedButtonsEvent containing the CID, rising edge ──▶
+    HostChangeEvent(source=BUTTON) ──▶ HostChangeSubscriber
+```
+
+- `MouseButtonSwitchSubscriber` starts `MouseReprogFeatureTask` (step `MOUSE_REPROG`, capped, in the orchestrator's factories) for a mouse without x1B04 after any successful discovery step, or on connect (cache hits from before the feature). On success it saves the cache itself: the orchestrator caches a device only once, usually before this step was added.
+- Arming rides on `SetReportFlagEvent`, which the reconnection path, `ChannelRearmSubscriber` and `_undivert_all` already publish for every device with x1B04; `SetReportFlagSubscriber` skips mice silently (they have no ES flags).
+- `divert: false` arms nothing and only listens: a peer app (Logi Options+) that diverts the button makes the device send the press to every open handle.
+- Hooks report a BUTTON switch like an EDGE switch (representative device). The echo guard records the target.
+
 ### Logging
 
 `log/log_setup.py` owns every root handler; nothing else calls `basicConfig` or adds root handlers.

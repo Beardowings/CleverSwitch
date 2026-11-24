@@ -1,0 +1,60 @@
+name: Build binaries
+
+# Builds the Windows and macOS binaries from any branch without a release tag, for testing and for
+# signing/allow-listing the exact build that gets installed. Run it from the Actions tab
+# ("Run workflow") or by pushing to a feature/** branch. Download the zip/tar.gz from the run's artifacts.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos
+            os: macos-15
+            archive: cleverswitch_macOS.tar.gz
+          - name: windows
+            os: windows-latest
+            archive: cleverswitch_windows_x64.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Full history and tags so setuptools-scm can derive a version.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build (macOS)
+        if: matrix.name == 'macos'
+        run: bash scripts/mac/build.sh
+
+      - name: Build (Windows)
+        if: matrix.name == 'windows'
+        shell: cmd
+        run: scripts\windows\build.bat
+
+      - name: Show version and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls dist
+          if [ -f dist/cleverswitch.exe ]; then dist/cleverswitch.exe --version; else dist/cleverswitch --version; fi
+          files=$(find dist -maxdepth 1 -type f)
+          if command -v sha256sum >/dev/null; then sha256sum $files; else shasum -a 256 $files; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cleverswitch-${{ matrix.name }}-${{ github.sha }}
+          path: dist/${{ matrix.archive }}
+          if-no-files-found: error

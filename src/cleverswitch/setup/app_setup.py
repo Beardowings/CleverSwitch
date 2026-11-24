@@ -26,6 +26,7 @@ from ..subscriber.event_hook_subscriber import EventHookSubscriber
 from ..subscriber.external_unset_flag_subscriber import ExternalUnsetFlagSubscriber
 from ..subscriber.host_change_subscriber import HostChangeSubscriber
 from ..subscriber.info_task_orchestrator import InfoTaskOrchestrator
+from ..subscriber.mouse_button_switch_subscriber import MouseButtonSwitchSubscriber
 from ..subscriber.receiver_arming_subscriber import ReceiverArmingSubscriber
 from ..subscriber.set_report_flag_subscriber import SetReportFlagSubscriber
 from ..subscriber.transport_disconnection_subscriber import TransportDisconnectionSubscriber
@@ -127,3 +128,5 @@ def _init_subscribers(
     EventHookSubscriber(config.hooks, device_registry, topics, cache)
     if config.edge_switch.enabled:
         EdgeSwitchSubscriber(config.edge_switch, topics, echo_guard, stopping)
+    if config.mouse_button_switch.enabled:
+        MouseButtonSwitchSubscriber(config.mouse_button_switch, device_registry, topics, cache, echo_guard, stopping)

@@ -7,6 +7,7 @@ from ..event.event import Event
 class SwitchSource(StrEnum):
     DEVICE = "device"
     EDGE = "edge"
+    BUTTON = "button"
 
 
 @dataclasses.dataclass

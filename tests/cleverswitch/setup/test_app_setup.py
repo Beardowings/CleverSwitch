@@ -122,3 +122,23 @@ def test_shutdown_signal_handler_skips_set_when_already_shutting_down(mocker):
     handler(15, None)
 
     spy.assert_not_called()
+
+
+def test_mouse_button_switch_subscriber_only_when_enabled(mocker):
+    import threading
+
+    from cleverswitch.model.config.mouse_button_switch_config import MouseButtonSwitchConfig
+    from cleverswitch.setup import app_setup
+
+    created = mocker.patch.object(app_setup, "MouseButtonSwitchSubscriber")
+    topics = app_setup._setup_topics()
+    config = mocker.MagicMock()
+    config.edge_switch.enabled = False
+
+    config.mouse_button_switch = MouseButtonSwitchConfig()
+    app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event())
+    created.assert_not_called()
+
+    config.mouse_button_switch = MouseButtonSwitchConfig(enabled=True, target_host=1)
+    app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event())
+    created.assert_called_once()

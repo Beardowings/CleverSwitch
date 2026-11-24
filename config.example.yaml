@@ -9,7 +9,7 @@
 #   CLEVERSWITCH_DEVICE        keyboard | mouse
 #   CLEVERSWITCH_DEVICE_NAME   e.g. MX Keys, MX Master 3
 #   CLEVERSWITCH_TARGET_HOST   1 | 2 | 3     (switch events only, 1-based)
-#   CLEVERSWITCH_SWITCH_SOURCE device | edge (switch events only)
+#   CLEVERSWITCH_SWITCH_SOURCE device | edge | button (switch events only)
 #
 # Each hook is a named entry with:
 #   path                   a script to run directly (no shell)      -- mutually exclusive
@@ -64,3 +64,22 @@ hooks:
 #   edges:                 # left | right | top | bottom -> host 1..3
 #     left: 1
 #     right: 2
+
+
+# Mouse button switch (optional)
+# Pressing the chosen mouse button switches every device (keyboard and mouse) to 'host'.
+# Run CleverSwitch on every computer, each with the host of the OTHER computer, e.g.
+# host: 2 on the computer on channel 1, host: 1 on the computer on channel 2.
+#
+# button: gesture (thumb button) | back | forward | middle | smartshift, or a CID such as 0x00C3
+#         (the log names the CID it diverts, and warns if the mouse refuses it)
+# divert: true  (default) CleverSwitch diverts the button itself, so it no longer does its normal action.
+#               Works next to Logi Options+ as long as Options+ does not use the same button for itself.
+#         false CleverSwitch only listens. Use this when Logi Options+ already diverts the button (any
+#               Options+ action except the button's native one); Options+ then performs its action as well,
+#               so give the button a harmless one.
+#
+# mouse_button_switch:
+#   button: gesture
+#   host: 2
+#   divert: true

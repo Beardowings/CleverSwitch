@@ -14,6 +14,7 @@ from ..hidpp.constants import (
     SW_ID_DIVERT,
 )
 from ..hidpp.protocol import build_msg
+from ..model.logi_device import ROLE_MOUSE
 from ..registry.logi_device_registry import LogiDeviceRegistry
 from ..subscriber.subscriber import Subscriber
 from ..topic.topics import Topics
@@ -42,6 +43,9 @@ class SetReportFlagSubscriber(Subscriber):
             return
 
         if not device.supported_flags & {KEY_FLAG_ANALYTICS, KEY_FLAG_DIVERTABLE}:
+            # A mouse has x1B04 only for mouse_button_switch, which arms its own button; it has no ES keys.
+            if device.role == ROLE_MOUSE:
+                return
             log.warning(f"wpid=0x{event.wpid:04X} has no reprog flags")
             return
 

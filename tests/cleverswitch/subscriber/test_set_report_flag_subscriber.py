@@ -159,3 +159,20 @@ def test_non_set_report_flag_event_is_noop():
     sub.notify("not an event")  # must not raise
 
     topics.write.publish.assert_not_called()
+
+
+def test_mouse_without_es_flags_is_skipped_silently(caplog):
+    from cleverswitch.model.logi_device import ROLE_MOUSE
+
+    registry = LogiDeviceRegistry()
+    topics = _make_topics()
+    sub = SetReportFlagSubscriber(registry, topics)
+
+    device = _make_device(supported_flags=set())
+    device.role = ROLE_MOUSE
+    registry.register(WPID, device)
+
+    sub.notify(SetReportFlagEvent(slot=1, pid=PID, wpid=WPID))
+
+    topics.write.publish.assert_not_called()
+    assert "has no reprog flags" not in caplog.text
