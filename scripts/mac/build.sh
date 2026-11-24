@@ -81,7 +81,9 @@ info "Smoke-testing the app..."
 "$APP/Contents/MacOS/$BUNDLE_NAME" --version || error "App failed to start — a build dependency was likely dropped (see step 1)."
 find "$APP" -name libhidapi.dylib | grep -q . \
     || error "libhidapi.dylib is missing from the app — it would fail on Macs without Homebrew hidapi."
-find "$APP" -path "*pystray*" | grep -q . || error "pystray is missing from the app — no menu bar icon."
+# pystray lives inside the bundled PYZ archive, so check the build's module graph instead of the files.
+grep -q "pystray._darwin" "build/$BUNDLE_NAME/xref-$BUNDLE_NAME.html" \
+    || error "pystray's macOS backend is missing from the app — no menu bar icon."
 codesign --verify --deep "$APP" || error "The app's signature does not verify."
 
 # ── Step 4: Assemble archive ─────────────────────────────────────────
