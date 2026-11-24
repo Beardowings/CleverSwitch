@@ -64,6 +64,8 @@ class MouseButtonSwitchSubscriber(Subscriber):
         topics.hid_event.subscribe(self)
         topics.flags.subscribe(self)
         topics.info_progress.subscribe(self)
+        mode = "divert" if config.divert else "listen only"
+        log.info(f"Mouse button switch on: button CID 0x{config.cid:04X} → host {config.target_host + 1} ({mode})")
 
     def notify(self, event) -> None:
         if isinstance(event, HidppNotificationEvent):

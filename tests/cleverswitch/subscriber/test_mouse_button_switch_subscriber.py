@@ -322,3 +322,11 @@ def test_connect_of_unknown_device_does_nothing():
     with patch(_TASK) as task_cls:
         sub.notify(DeviceConnectedEvent(slot=SLOT, pid=PID, link_established=True, wpid=WPID))
     task_cls.assert_not_called()
+
+
+def test_logs_its_settings_at_startup(caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO):
+        _setup()
+    assert "Mouse button switch on: button CID 0x00C3 → host 2 (divert)" in caplog.text
