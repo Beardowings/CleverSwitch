@@ -169,3 +169,26 @@ def test_setup_settings_without_config_path_has_no_writer(mocker):
 
     config = Config(hooks=mocker.MagicMock(), arguments_settings=mocker.MagicMock(), cache_path=mocker.MagicMock())
     assert app_setup._setup_settings(config, app_setup._setup_topics()).config_path is None
+
+
+def test_report_flag_subscriber_follows_live_setting(mocker):
+    import threading
+
+    from cleverswitch.model.config.mouse_button_switch_config import MouseButtonSwitchConfig
+    from cleverswitch.setup import app_setup
+
+    created = mocker.patch.object(app_setup, "SetReportFlagSubscriber")
+    mocker.patch.object(app_setup, "MouseButtonSwitchSubscriber")
+    config = mocker.MagicMock()
+    config.edge_switch.enabled = False
+    config.mouse_button_switch = MouseButtonSwitchConfig()
+    config.easy_switch_divert = False
+    settings = mocker.MagicMock()
+    settings.easy_switch_divert = True
+    topics = app_setup._setup_topics()
+
+    app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event(), settings)
+    assert created.call_args.args[2]() is True
+
+    app_setup._init_subscribers(topics, mocker.MagicMock(), config, mocker.MagicMock(), threading.Event())
+    assert created.call_args.args[2]() is False

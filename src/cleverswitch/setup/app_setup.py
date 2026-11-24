@@ -49,7 +49,7 @@ def setup_context(args: argparse.Namespace) -> AppContext:
     registry = _setup_logi_device_registry()
     cache = _setup_device_cache(config)
     settings = _setup_settings(config, topics)
-    _init_subscribers(topics, registry, config, cache, shutdown)
+    _init_subscribers(topics, registry, config, cache, shutdown, settings)
     return AppContext(registry, topics, config, shutdown, settings)
 
 
@@ -120,13 +120,17 @@ def _init_subscribers(
     config: Config,
     cache: DeviceCache,
     shutdown: threading.Event,
+    settings: SettingsService | None = None,
 ) -> None:
     echo_guard = SwitchEchoGuard()
     stopping = shutdown.is_set
     DeviceConnectionSubscriber(device_registry, topics, cache)
     DeviceInfoSubscriber(device_registry, topics)
     InfoTaskOrchestrator(device_registry, topics, cache)
-    SetReportFlagSubscriber(device_registry, topics)
+    prefer_divert = (
+        (lambda: settings.easy_switch_divert) if settings is not None else (lambda: config.easy_switch_divert)
+    )
+    SetReportFlagSubscriber(device_registry, topics, prefer_divert)
     ExternalUnsetFlagSubscriber(device_registry, topics)
     AnalyticsRejectionSubscriber(device_registry, topics, cache)
     HostChangeSubscriber(device_registry, topics, stopping)

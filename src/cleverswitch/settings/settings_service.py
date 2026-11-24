@@ -8,6 +8,7 @@ import threading
 from typing import Any
 
 from ..config.config_file import ConfigFileWriter
+from ..event.easy_switch_mode_changed_event import EasySwitchModeChangedEvent
 from ..event.mouse_button_switch_changed_event import MouseButtonSwitchChangedEvent
 from ..hidpp.constants import HOST_SWITCH_CIDS, MOUSE_BUTTON_CIDS
 from ..model.config.config import Config
@@ -34,6 +35,7 @@ class SettingsService:
         self._lock = threading.Lock()
         self._mouse_button_switch = config.mouse_button_switch
         self._host_names = dict(config.host_names)
+        self._easy_switch_divert = config.easy_switch_divert
 
     @property
     def mouse_button_switch(self) -> MouseButtonSwitchConfig:
@@ -44,6 +46,20 @@ class SettingsService:
     def host_names(self) -> dict[int, str]:
         with self._lock:
             return dict(self._host_names)
+
+    @property
+    def easy_switch_divert(self) -> bool:
+        with self._lock:
+            return self._easy_switch_divert
+
+    def set_easy_switch_divert(self, divert: bool) -> None:
+        with self._lock:
+            if self._easy_switch_divert == divert:
+                return
+            self._easy_switch_divert = divert
+        log.info(f"Keyboard Easy-Switch keys: {'divert' if divert else 'analytics where supported'}")
+        self._persist(lambda raw: _store_easy_switch(raw, divert))
+        self._topics.flags.publish(EasySwitchModeChangedEvent(slot=0, pid=0, divert=divert))
 
     @property
     def config_path(self):
@@ -117,6 +133,14 @@ def _store_mouse_button_switch(raw: dict[str, Any], config: MouseButtonSwitchCon
     else:
         section["host"] = config.target_host + 1
     section["divert"] = config.divert
+
+
+def _store_easy_switch(raw: dict[str, Any], divert: bool) -> None:
+    section = raw.get("easy_switch")
+    if not isinstance(section, dict):
+        section = {}
+        raw["easy_switch"] = section
+    section["divert"] = divert
 
 
 def _store_host_names(raw: dict[str, Any], names: dict[int, str]) -> None:

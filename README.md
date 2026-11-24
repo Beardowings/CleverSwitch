@@ -212,6 +212,7 @@ mouse_button_switch:
 - With `divert: true` (default) CleverSwitch diverts the button over HID++ (0x1B04), so the button no longer does its normal action. The divert is temporary: the mouse forgets it on power-off and CleverSwitch un-diverts it on exit.
 - **Next to Logi Options+:** if Options+ already assigns an action to the same button, it diverts the button too, and both programs see the press. Then set `divert: false` and give the button a harmless action in Options+ (it still runs). If Options+ leaves the button on its default, `divert: true` should work without touching Options+ (not yet tested on hardware).
 - Every device that supports CHANGE_HOST (0x1814) is switched. A keyboard in deep sleep may miss the command; if it stays behind, press a key and switch again.
+- **Keyboard Easy-Switch keys next to Logi Options+:** if pressing an Easy-Switch key moves only the keyboard, Options+ has re-armed the keys after CleverSwitch, so the press is reported to Options+ alone. Turn on *Handle the keyboard's Easy-Switch keys myself* in the menu (or `easy_switch: {divert: true}`): the keys are then diverted, the keyboard stays until CleverSwitch has sent both devices, and a crash or power cycle gives the keys back.
 - Editing the file by hand needs a restart; changes from the menu do not. Channel names live in `host_names` (`1: Notebook`).
 
 ## Logs

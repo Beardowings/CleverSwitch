@@ -68,6 +68,7 @@ def test_menu_layout():
         GERMAN.target_host,
         GERMAN.name_hosts,
         GERMAN.button,
+        GERMAN.keyboard_divert,
         GERMAN.open_options_plus,
         GERMAN.autostart,
         GERMAN.advanced,
@@ -179,3 +180,10 @@ def test_quit_sets_shutdown():
 def test_every_known_button_has_a_label(cid):
     controller, *_ = _controller()
     assert not controller.button_label(cid).startswith("CID")
+
+
+def test_toggle_keyboard_divert():
+    controller, settings, *_ = _controller()
+    _find(controller.menu(), GERMAN.keyboard_divert).action()
+    assert settings.easy_switch_divert is True
+    assert _find(controller.menu(), GERMAN.keyboard_divert).checked is True

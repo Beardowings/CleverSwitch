@@ -105,3 +105,17 @@ def test_works_without_a_file():
     service.set_host_name(0, "A")
     assert service.mouse_button_switch.enabled is False
     topics.flags.publish.assert_called_once()
+
+
+def test_easy_switch_divert_saved_and_announced(tmp_path):
+    from cleverswitch.event.easy_switch_mode_changed_event import EasySwitchModeChangedEvent
+
+    service, topics, writer = _service(tmp_path, raw_text="easy_switch: on\n")
+    assert service.easy_switch_divert is False
+    service.set_easy_switch_divert(False)  # unchanged
+    topics.flags.publish.assert_not_called()
+    service.set_easy_switch_divert(True)
+    assert service.easy_switch_divert is True
+    assert _saved(writer)["easy_switch"] == {"divert": True}
+    (event,) = [c.args[0] for c in topics.flags.publish.call_args_list]
+    assert event == EasySwitchModeChangedEvent(slot=0, pid=0, divert=True)

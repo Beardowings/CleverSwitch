@@ -105,3 +105,16 @@ def test_host_names_not_a_mapping(caplog):
 
 def test_host_names_missing():
     assert _names(None) == {}
+
+
+@pytest.mark.parametrize(
+    ("section", "expected"),
+    [(None, False), ({"divert": True}, True), ({}, False), ({"divert": "yes"}, False), ("x", False)],
+)
+def test_easy_switch_divert(section, expected):
+    import argparse
+
+    from cleverswitch.config.config import _parse
+
+    raw = {} if section is None else {"easy_switch": section}
+    assert _parse(raw, argparse.Namespace(verbose_extra=False)).easy_switch_divert is expected

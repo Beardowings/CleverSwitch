@@ -103,6 +103,7 @@ def _parse(raw: dict[str, Any], cli_args: argparse.Namespace) -> Config:
         edge_switch=_parse_edge_switch(raw),
         mouse_button_switch=_parse_mouse_button_switch(raw),
         host_names=_parse_host_names(raw),
+        easy_switch_divert=_parse_easy_switch_divert(raw),
     )
     return config
 
@@ -257,6 +258,17 @@ def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
         target_host=target_host,
         divert=divert,
     )
+
+
+def _parse_easy_switch_divert(raw: dict[str, Any]) -> bool:
+    section = raw.get("easy_switch")
+    if section is None:
+        return False
+    divert = section.get("divert", False) if isinstance(section, dict) else None
+    if not isinstance(divert, bool):
+        log.error("easy_switch 'divert' must be true or false; using false")
+        return False
+    return divert
 
 
 def _parse_host_names(raw: dict[str, Any]) -> dict[int, str]:

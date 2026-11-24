@@ -85,6 +85,11 @@ hooks:
 #   host: 2
 #   divert: true
 #
+# Keyboard Easy-Switch keys: divert them instead of using analytics reporting, even on keyboards that
+# support analytics. Try this when an Easy-Switch key moves only the keyboard (e.g. next to Logi Options+).
+# easy_switch:
+#   divert: true
+#
 # Channel names shown in the tray / menu bar menu (optional; the menu edits them too):
 # host_names:
 #   1: Notebook
