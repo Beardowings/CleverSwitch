@@ -19,9 +19,9 @@ jobs:
       matrix:
         include:
           - name: macos
-            # Intel runner: GitHub's arm64 macOS runners are often short of capacity. The binary runs on
-            # Apple silicon through Rosetta 2.
-            os: macos-15-intel
+            # Apple silicon (arm64). The Intel build did not start on Apple silicon without Rosetta 2.
+            # arm64 runners can queue for a while when GitHub is short of capacity.
+            os: macos-15
             archive: cleverswitch_macOS.tar.gz
           - name: windows
             os: windows-latest
