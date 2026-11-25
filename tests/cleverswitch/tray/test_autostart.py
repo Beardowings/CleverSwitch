@@ -104,3 +104,35 @@ def test_windows_failure(caplog):
 def test_create_autostart_per_platform():
     assert isinstance(create_autostart("Darwin"), MacAutostart)
     assert create_autostart("Linux") is None
+
+
+NEW_APP = ["/Applications/CleverSwitch.app/Contents/MacOS/CleverSwitch"]
+
+
+def test_mac_refresh_repoints_an_old_agent(tmp_path, caplog):
+    MacAutostart(tmp_path, ["/Users/me/Downloads/CleverSwitch.app/Contents/MacOS/CleverSwitch"]).set_enabled(True)
+    autostart = MacAutostart(tmp_path, NEW_APP)
+    assert autostart.refresh() is True
+    agent = plistlib.loads((tmp_path / f"{MAC_LABEL}.plist").read_bytes())
+    assert agent["ProgramArguments"] == NEW_APP
+    assert "updating it" in caplog.text
+    assert autostart.refresh() is False  # already current
+
+
+def test_mac_refresh_leaves_a_missing_or_broken_agent_alone(tmp_path):
+    autostart = MacAutostart(tmp_path, NEW_APP)
+    assert autostart.refresh() is False
+    assert not autostart.is_enabled()
+    (tmp_path / f"{MAC_LABEL}.plist").write_bytes(b"not a plist")
+    assert autostart.refresh() is False
+
+
+def test_windows_refresh():
+    reg = FakeWinreg()
+    autostart = WindowsAutostart(reg, [r"C:\New\cleverswitch.exe"])
+    assert autostart.refresh() is False  # off stays off
+    assert RUN_VALUE not in reg.values
+    reg.values[RUN_VALUE] = r'"C:\Old\cleverswitch.exe"'
+    assert autostart.refresh() is True
+    assert reg.values[RUN_VALUE] == r'"C:\New\cleverswitch.exe"'
+    assert autostart.refresh() is False

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 
 from ..model.context.app_context import AppContext
@@ -29,12 +30,16 @@ def build_controller(context: AppContext, system: str) -> TrayController:
         from .desktop import ask_text_windows
 
         ask_text = ask_text_windows
+    autostart = create_autostart(system)
+    # Only a built exe/app repairs the entry: a run from source must not repoint it at the interpreter.
+    if autostart is not None and getattr(sys, "frozen", False):
+        autostart.refresh()
     return TrayController(
         settings=context.settings,
         shutdown=context.shutdown,
         strings=strings_for(detect_language()),
         desktop=Desktop(system),
-        autostart=create_autostart(system),
+        autostart=autostart,
         ask_text=ask_text,
         log_dir=log_dir,
     )
