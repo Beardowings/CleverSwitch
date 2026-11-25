@@ -31,6 +31,18 @@ class Strings:
     open_logs: str
     quit: str
     choose_host_hint: str
+    info: str
+    info_installed: str  # {version}
+    info_latest: str  # {version}
+    info_up_to_date: str
+    info_check_failed: str  # {error}
+    info_source_build: str
+    info_update_hint_mac: str
+    button_update: str
+    button_repo: str
+    button_close: str
+    update_failed: str  # {error}
+    update_done_mac: str
 
 
 GERMAN = Strings(
@@ -61,6 +73,23 @@ GERMAN = Strings(
     open_logs="Log-Ordner öffnen",
     quit="CleverSwitch beenden",
     choose_host_hint="Bitte im CleverSwitch-Menü den Zielkanal wählen.",
+    info="Info …",
+    info_installed="Installiert: {version}",
+    info_latest="Neueste Version: {version}",
+    info_up_to_date="Du hast die neueste Version.",
+    info_check_failed="Neueste Version konnte nicht geprüft werden ({error}).",
+    info_source_build="Diese Kopie läuft aus dem Quellcode und kann sich nicht selbst aktualisieren.",
+    info_update_hint_mac="Nach dem Update fragt macOS eventuell erneut nach der Eingabeüberwachung.",
+    button_update="Aktualisieren",
+    button_repo="GitHub öffnen",
+    button_close="Schließen",
+    update_failed="Das Update hat nicht geklappt: {error}",
+    update_done_mac=(
+        "Das Update ist installiert. CleverSwitch startet jetzt neu.\n\n"
+        "Tut die Maustaste danach nichts: unter Systemeinstellungen → Datenschutz & Sicherheit → "
+        "Eingabeüberwachung CleverSwitch entfernen, /Applications/CleverSwitch.app neu hinzufügen "
+        "und die App neu öffnen."
+    ),
 )
 
 ENGLISH = Strings(
@@ -91,6 +120,22 @@ ENGLISH = Strings(
     open_logs="Open log folder",
     quit="Quit CleverSwitch",
     choose_host_hint="Please choose the target channel in the CleverSwitch menu.",
+    info="About …",
+    info_installed="Installed: {version}",
+    info_latest="Latest version: {version}",
+    info_up_to_date="You have the latest version.",
+    info_check_failed="Could not check for the latest version ({error}).",
+    info_source_build="This copy runs from source and cannot update itself.",
+    info_update_hint_mac="After the update macOS may ask for Input Monitoring again.",
+    button_update="Update",
+    button_repo="Open GitHub",
+    button_close="Close",
+    update_failed="The update did not work: {error}",
+    update_done_mac=(
+        "The update is installed. CleverSwitch restarts now.\n\n"
+        "If the mouse button does nothing afterwards: remove CleverSwitch under System Settings → "
+        "Privacy & Security → Input Monitoring, add /Applications/CleverSwitch.app again and reopen it."
+    ),
 )
 
 

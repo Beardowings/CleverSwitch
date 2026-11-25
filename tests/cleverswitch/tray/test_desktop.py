@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cleverswitch.tray.desktop import Desktop, ask_text_mac
+from cleverswitch.tray.desktop import Desktop, ask_text_mac, choose_mac
 
 
 def _desktop(system, existing=(), **kwargs):
@@ -74,3 +74,35 @@ def test_ask_text_mac_cancel_and_failure(caplog):
     broken = MagicMock(side_effect=OSError("no osascript"))
     assert ask_text_mac("T", "P", "", run=broken) is None
     assert "Could not ask for text" in caplog.text
+
+
+def test_open_url_per_platform():
+    run = MagicMock()
+    Desktop("Darwin", run=run).open_url("https://x")
+    run.assert_called_with(["open", "https://x"])
+    Desktop("Linux", run=run).open_url("https://x")
+    run.assert_called_with(["xdg-open", "https://x"])
+    started = []
+    Desktop("Windows", startfile=started.append).open_url("https://x")
+    assert started == ["https://x"]
+
+
+def test_open_url_failure_on_windows_is_logged(caplog):
+    def broken(url):
+        raise OSError("no browser")
+
+    Desktop("Windows", startfile=broken).open_url("https://x")
+    assert "Could not open https://x" in caplog.text
+
+
+def test_choose_mac_returns_button_and_passes_values_as_arguments():
+    run = MagicMock(return_value=MagicMock(returncode=0, stdout="Aktualisieren\n"))
+    assert choose_mac("T", "M", ["A", "B"], run=run) == "Aktualisieren"
+    command = run.call_args.args[0]
+    assert command[:2] == ["osascript", "-e"] and command[3:] == ["T", "M", "A", "B"]
+
+
+def test_choose_mac_closed_or_failed(caplog):
+    assert choose_mac("T", "M", ["OK"], run=MagicMock(return_value=MagicMock(returncode=1))) is None
+    assert choose_mac("T", "M", ["OK"], run=MagicMock(side_effect=OSError("no osascript"))) is None
+    assert "Could not show a dialog" in caplog.text

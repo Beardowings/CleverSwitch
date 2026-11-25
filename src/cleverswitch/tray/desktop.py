@@ -68,6 +68,17 @@ class Desktop:
         else:
             self._spawn(["xdg-open", str(path)])
 
+    def open_url(self, url: str) -> None:
+        if self._system == "Windows" and self._startfile is not None:
+            try:
+                self._startfile(url)
+            except OSError as e:
+                log.error(f"Could not open {url}: {e}")
+        elif self._system == "Darwin":
+            self._spawn(["open", url])
+        else:
+            self._spawn(["xdg-open", url])
+
     def _spawn(self, command: list[str]) -> None:
         try:
             self._run(command)
@@ -91,6 +102,48 @@ def ask_text_mac(title: str, prompt: str, default: str, run=subprocess.run) -> s
     if result.returncode != 0:
         return None  # cancelled
     return result.stdout.rstrip("\n")
+
+
+def choose_mac(title: str, message: str, buttons: list[str], run=subprocess.run) -> str | None:
+    """A message with up to three buttons via AppleScript; the last button is the default. None when closed."""
+    script = (
+        "on run argv\n"
+        "  set btns to items 3 thru -1 of argv\n"
+        "  set r to display dialog (item 2 of argv) with title (item 1 of argv) "
+        "buttons btns default button (count of btns)\n"
+        "  return button returned of r\n"
+        "end run"
+    )
+    try:
+        result = run(["osascript", "-e", script, title, message, *buttons], capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log.error(f"Could not show a dialog: {e}")
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.rstrip("\n")
+
+
+def choose_windows(title: str, message: str, buttons: list[str]) -> str | None:  # pragma: no cover - GUI
+    import tkinter
+
+    chosen: list[str] = []
+    root = tkinter.Tk()
+    root.title(title)
+    root.attributes("-topmost", True)
+    root.resizable(False, False)
+    tkinter.Label(root, text=message, justify="left", wraplength=420, padx=16, pady=12).pack()
+    row = tkinter.Frame(root, padx=12, pady=8)
+    row.pack(fill="x")
+    for text in reversed(buttons):
+
+        def press(value: str = text) -> None:
+            chosen.append(value)
+            root.destroy()
+
+        tkinter.Button(row, text=text, width=14, command=press).pack(side="right", padx=4)
+    root.mainloop()
+    return chosen[0] if chosen else None
 
 
 def ask_text_windows(title: str, prompt: str, default: str) -> str | None:  # pragma: no cover - GUI

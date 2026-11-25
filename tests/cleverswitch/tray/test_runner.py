@@ -76,3 +76,14 @@ def test_runs_tray_and_stops_it_when_discovery_ends(monkeypatch):
     assert runner.run_tray(context, discovery, "Darwin") is True
     assert stopped.is_set()
     assert context.shutdown.is_set()
+
+
+def test_build_controller_refreshes_autostart_only_when_frozen(monkeypatch):
+    autostart = MagicMock()
+    monkeypatch.setattr(runner, "create_autostart", lambda system: autostart)
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    runner.build_controller(_context(), "Darwin")
+    autostart.refresh.assert_not_called()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    runner.build_controller(_context(), "Darwin")
+    autostart.refresh.assert_called_once()

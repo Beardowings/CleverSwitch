@@ -9,6 +9,8 @@ from pathlib import Path
 
 from ..hidpp.constants import MOUSE_BUTTON_CIDS
 from ..settings.settings_service import HOST_COUNT, SettingsService
+from ..update.release import REPO_URL, UpdateError, is_newer
+from ..update.service import Updates
 from .autostart import Autostart
 from .desktop import Desktop
 from .menu import SEPARATOR, MenuEntry
@@ -17,6 +19,7 @@ from .strings import Strings
 log = logging.getLogger(__name__)
 
 AskText = Callable[[str, str, str], "str | None"]
+Choose = Callable[[str, str, list[str]], "str | None"]
 
 
 class TrayController:
@@ -29,6 +32,8 @@ class TrayController:
         autostart: Autostart | None,
         ask_text: AskText,
         log_dir: Path | None,
+        updates: Updates | None = None,
+        choose: Choose | None = None,
     ) -> None:
         self._settings = settings
         self._shutdown = shutdown
@@ -37,6 +42,8 @@ class TrayController:
         self._autostart = autostart
         self._ask_text = ask_text
         self._log_dir = log_dir
+        self._updates = updates
+        self._choose = choose
         self.refresh: Callable[[], None] = lambda: None  # set by the renderer: redraw menu and icon
 
     # ── State shown by the renderer ─────────────────────────────────────
@@ -92,7 +99,10 @@ class TrayController:
         if self._autostart is not None:
             entries.append(MenuEntry(self._s.autostart, self.toggle_autostart, checked=self._autostart.is_enabled()))
         entries.append(MenuEntry(self._s.advanced, submenu=tuple(self._advanced_entries(config.divert))))
-        entries += [SEPARATOR, MenuEntry(self._s.quit, self.quit)]
+        entries.append(SEPARATOR)
+        if self._updates is not None and self._choose is not None:
+            entries.append(MenuEntry(self._s.info, self.open_info))
+        entries.append(MenuEntry(self._s.quit, self.quit))
         return entries
 
     def _host_entries(self, target: int | None):
@@ -163,6 +173,55 @@ class TrayController:
             return
         self._settings.set_host_name(host, answer)
         self.refresh()
+
+    def open_info(self) -> None:
+        # Off the toolkit thread: asking GitHub and the dialog must not freeze the menu bar.
+        threading.Thread(target=self.show_info, name="tray-info", daemon=True).start()
+
+    def show_info(self) -> None:
+        updates, choose = self._updates, self._choose
+        if updates is None or choose is None:
+            return
+        lines = ["CleverSwitch", self._s.info_installed.format(version=updates.current_version)]
+        release = None
+        try:
+            release = updates.latest()
+        except UpdateError as e:
+            log.warning(f"Update check failed: {e}")
+            lines.append(self._s.info_check_failed.format(error=e))
+        buttons = [self._s.button_repo, self._s.button_close]
+        if release is not None:
+            lines.append(self._s.info_latest.format(version=release.version.removeprefix("v")))
+            if not is_newer(release.version, updates.current_version):
+                lines.append(self._s.info_up_to_date)
+            elif updates.can_update():
+                buttons.append(self._s.button_update)
+                if updates.system == "Darwin":
+                    lines.append(self._s.info_update_hint_mac)
+            else:
+                lines.append(self._s.info_source_build)
+        answer = choose("CleverSwitch", "\n".join(lines), buttons)
+        if answer == self._s.button_repo:
+            self._desktop.open_url(REPO_URL)
+        elif answer == self._s.button_update and release is not None:
+            self.update(release)
+
+    def update(self, release) -> None:
+        updates, choose = self._updates, self._choose
+        if updates is None or choose is None:
+            return
+        log.info(f"Updating from {updates.current_version} to {release.version}")
+        try:
+            updates.install(release)
+        except UpdateError as e:
+            log.error(f"Update failed: {e}")
+            choose("CleverSwitch", self._s.update_failed.format(error=e), ["OK"])
+            return
+        if updates.system == "Darwin":
+            choose("CleverSwitch", self._s.update_done_mac, ["OK"])
+        # The new copy waits for this process to exit, so the button is given back before it starts.
+        updates.restart()
+        self._shutdown.set()
 
     def quit(self) -> None:
         log.info("Quit from the tray menu")

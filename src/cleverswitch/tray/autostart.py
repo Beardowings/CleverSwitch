@@ -26,6 +26,8 @@ class Autostart(Protocol):
 
     def set_enabled(self, enabled: bool) -> bool: ...
 
+    def refresh(self) -> bool: ...
+
 
 def launch_command() -> list[str]:
     """How to start this program again: the frozen binary itself, or this interpreter with -m."""
@@ -68,6 +70,19 @@ class WindowsAutostart:
         log.info(f"Start at login {'on' if enabled else 'off'}")
         return True
 
+    def refresh(self) -> bool:
+        """Points an existing entry at this program again, e.g. after the exe was moved or replaced."""
+        try:
+            with self._winreg.OpenKey(self._winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+                current, _ = self._winreg.QueryValueEx(key, RUN_VALUE)
+        except OSError:
+            return False
+        wanted = " ".join(f'"{part}"' for part in self._command)
+        if current == wanted:
+            return False
+        log.info(f"Start at login pointed at {current}; updating it to {wanted}")
+        return self.set_enabled(True)
+
 
 class MacAutostart:
     def __init__(self, agents_dir: Path | None = None, command: list[str] | None = None) -> None:
@@ -100,6 +115,19 @@ class MacAutostart:
         # Not loaded now: this instance is already running. launchd picks the agent up at next login.
         log.info(f"Start at login {'on' if enabled else 'off'}")
         return True
+
+    def refresh(self) -> bool:
+        """Points an existing agent at this program again, e.g. after a new CleverSwitch.app was installed
+        elsewhere; otherwise login keeps starting the old copy next to the new one."""
+        try:
+            with open(self._plist, "rb") as f:
+                current = plistlib.load(f).get("ProgramArguments")
+        except (OSError, plistlib.InvalidFileException, ValueError):
+            return False
+        if current == self._command:
+            return False
+        log.info(f"Start at login pointed at {current}; updating it to {self._command}")
+        return self.set_enabled(True)
 
 
 def create_autostart(system: str) -> Autostart | None:
