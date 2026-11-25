@@ -15,6 +15,8 @@ on:
 jobs:
   aur:
     name: Publish AUR package
+    # Only the original project publishes Homebrew/AUR packages; forks have no credentials for them.
+    if: github.repository == 'MikalaiBarysevich/CleverSwitch'
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:

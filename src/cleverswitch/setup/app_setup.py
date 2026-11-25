@@ -8,12 +8,14 @@ from .. import __version__
 from ..cache.device_cache import DeviceCache
 from ..config import config as cfg_module
 from ..config.config import Config
+from ..config.config_file import ConfigFileWriter, ensure_config_file
 from ..errors.errors import ConfigError
 from ..log.log_setup import configure_logging
 from ..model.config.logging_config import LoggingConfig
 from ..model.context.app_context import AppContext
 from ..model.switch_echo_guard import SwitchEchoGuard
 from ..registry.logi_device_registry import LogiDeviceRegistry
+from ..settings.settings_service import SettingsService
 from ..subscriber.analytics_rejection_subscriber import AnalyticsRejectionSubscriber
 from ..subscriber.change_host_notification_subscriber import ChangeHostNotificationSubscriber
 from ..subscriber.channel_rearm_subscriber import ChannelRearmSubscriber
@@ -26,6 +28,8 @@ from ..subscriber.event_hook_subscriber import EventHookSubscriber
 from ..subscriber.external_unset_flag_subscriber import ExternalUnsetFlagSubscriber
 from ..subscriber.host_change_subscriber import HostChangeSubscriber
 from ..subscriber.info_task_orchestrator import InfoTaskOrchestrator
+from ..subscriber.keyboard_follow_subscriber import KeyboardFollowSubscriber
+from ..subscriber.mouse_button_switch_subscriber import MouseButtonSwitchSubscriber
 from ..subscriber.receiver_arming_subscriber import ReceiverArmingSubscriber
 from ..subscriber.set_report_flag_subscriber import SetReportFlagSubscriber
 from ..subscriber.transport_disconnection_subscriber import TransportDisconnectionSubscriber
@@ -45,12 +49,17 @@ def setup_context(args: argparse.Namespace) -> AppContext:
     topics = _setup_topics()
     registry = _setup_logi_device_registry()
     cache = _setup_device_cache(config)
-    _init_subscribers(topics, registry, config, cache, shutdown)
-    return AppContext(registry, topics, config, shutdown)
+    settings = _setup_settings(config, topics)
+    _init_subscribers(topics, registry, config, cache, shutdown, settings)
+    return AppContext(registry, topics, config, shutdown, settings)
 
 
 def _load_config(args: argparse.Namespace) -> Config:
     verbose = bool(args.verbose or args.verbose_extra)
+    if args.config is None:
+        # Nobody should have to create a file by hand; logging is not configured yet, so this is
+        # reported through the startup buffer and replayed into the log file.
+        ensure_config_file(cfg_module.default_config_path())
     try:
         config = cfg_module.load(args)
     except ConfigError as e:
@@ -91,6 +100,11 @@ def _setup_topics() -> Topics:
     )
 
 
+def _setup_settings(config: Config, topics: Topics) -> SettingsService:
+    writer = ConfigFileWriter(config.config_path) if config.config_path is not None else None
+    return SettingsService(config, topics, writer)
+
+
 def _setup_logi_device_registry() -> LogiDeviceRegistry:
     return LogiDeviceRegistry()
 
@@ -107,13 +121,17 @@ def _init_subscribers(
     config: Config,
     cache: DeviceCache,
     shutdown: threading.Event,
+    settings: SettingsService | None = None,
 ) -> None:
     echo_guard = SwitchEchoGuard()
     stopping = shutdown.is_set
     DeviceConnectionSubscriber(device_registry, topics, cache)
     DeviceInfoSubscriber(device_registry, topics)
     InfoTaskOrchestrator(device_registry, topics, cache)
-    SetReportFlagSubscriber(device_registry, topics)
+    prefer_divert = (
+        (lambda: settings.easy_switch_divert) if settings is not None else (lambda: config.easy_switch_divert)
+    )
+    SetReportFlagSubscriber(device_registry, topics, prefer_divert)
     ExternalUnsetFlagSubscriber(device_registry, topics)
     AnalyticsRejectionSubscriber(device_registry, topics, cache)
     HostChangeSubscriber(device_registry, topics, stopping)
@@ -127,3 +145,9 @@ def _init_subscribers(
     EventHookSubscriber(config.hooks, device_registry, topics, cache)
     if config.edge_switch.enabled:
         EdgeSwitchSubscriber(config.edge_switch, topics, echo_guard, stopping)
+    # Always present: the tray can switch the feature on at runtime.
+    MouseButtonSwitchSubscriber(config.mouse_button_switch, device_registry, topics, cache, echo_guard, stopping)
+    current_mbs = (
+        (lambda: settings.mouse_button_switch) if settings is not None else (lambda: config.mouse_button_switch)
+    )
+    KeyboardFollowSubscriber(device_registry, topics, current_mbs, echo_guard, stopping)

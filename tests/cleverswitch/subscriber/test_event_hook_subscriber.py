@@ -405,3 +405,30 @@ def test_device_switch_does_not_need_the_eligibility_check(mock_hooks):
     )
 
     mock_hooks.fire_switch.assert_called_once()
+
+
+# ── Mouse button switch ──────────────────────────────────────────────────────
+
+
+@patch("cleverswitch.subscriber.event_hook_subscriber.hooks")
+def test_button_switch_reports_the_keyboard_like_an_edge_switch(mock_hooks):
+    registry = LogiDeviceRegistry()
+    registry.register(0x4082, _make_device(wpid=0x4082, slot=2, role=ROLE_MOUSE, name="MX Master"))
+    registry.register(WPID, _make_device())
+    event = HostChangeEvent(slot=2, pid=PID, target_host=1, source=SwitchSource.BUTTON)
+
+    EventHookSubscriber(_hooks_cfg(), registry, _make_topics(), _empty_cache()).notify(event)
+
+    mock_hooks.fire_switch.assert_called_once_with(_hooks_cfg(), "MX Keys", ROLE_KEYBOARD, 1, source="button")
+
+
+@patch("cleverswitch.subscriber.event_hook_subscriber.hooks")
+def test_follow_switch_reports_the_keyboard_like_an_edge_switch(mock_hooks):
+    registry = LogiDeviceRegistry()
+    registry.register(0x4082, _make_device(wpid=0x4082, slot=2, role=ROLE_MOUSE, name="MX Master"))
+    registry.register(WPID, _make_device())
+    event = HostChangeEvent(slot=2, pid=PID, target_host=1, source=SwitchSource.FOLLOW)
+
+    EventHookSubscriber(_hooks_cfg(), registry, _make_topics(), _empty_cache()).notify(event)
+
+    mock_hooks.fire_switch.assert_called_once_with(_hooks_cfg(), "MX Keys", ROLE_KEYBOARD, 1, source="follow")

@@ -219,6 +219,30 @@ HostChangeSubscriber (unchanged, the only CHANGE_HOST sender) ──▶ every de
 - **Echo guard**: `SwitchEchoGuard` (`model/switch_echo_guard.py`) is shared by `EdgeSwitchSubscriber` (records the target) and `ChangeHostNotificationSubscriber`, which drops an x1814 announcement of the same target within 2 s. Whether devices announce a switch they were told to make is unconfirmed; the guard keeps it from causing a second switch burst and a second SWITCH hook. A genuine press to that same host inside the window is dropped too — acceptable, because every device was just told to go there, so only a redundant repair is lost; a press to any other host passes at once.
 - **Known risk**: the switch is sent while the modifier is held, so the departing host may never see it released (the user accepted this).
 
+### Mouse button switch
+
+Optional third way to start a switch (`mouse_button_switch` config section, off unless present): pressing the configured mouse button (CID, default the thumb button 0x00C3) switches every device to the configured host.
+
+```
+MouseReprogFeatureTask (x1B04 on mice; discovery resolves it for keyboards only) ──▶ flags: SetReportFlagEvent
+MouseButtonSwitchSubscriber (flags) ── setCidReporting divert of the one CID (unless divert: false)
+MouseButtonSwitchSubscriber (hid_event) ── divertedButtonsEvent containing the CID, rising edge ──▶
+    HostChangeEvent(source=BUTTON) ──▶ HostChangeSubscriber
+```
+
+- `MouseButtonSwitchSubscriber` starts `MouseReprogFeatureTask` (step `MOUSE_REPROG`, capped, in the orchestrator's factories) for a mouse without x1B04 after any successful discovery step, or on connect (cache hits from before the feature). On success it saves the cache itself: the orchestrator caches a device only once, usually before this step was added.
+- Arming rides on `SetReportFlagEvent`, which the reconnection path, `ChannelRearmSubscriber` and `_undivert_all` already publish for every device with x1B04; `SetReportFlagSubscriber` skips mice silently (they have no ES flags).
+- `divert: false` arms nothing and only listens: a peer app (Logi Options+) that diverts the button makes the device send the press to every open handle.
+- Hooks report a BUTTON switch like an EDGE switch (representative device). The echo guard records the target.
+- Runtime changes: `SettingsService` (`settings/settings_service.py`, built in `setup_context`, on `AppContext.settings`) holds the live `MouseButtonSwitchConfig` and `host_names`, saves each change through `ConfigFileWriter` (`config/config_file.py`, atomic YAML rewrite of the one file the config came from) and publishes `MouseButtonSwitchChangedEvent(old, new)` on `flags`. The subscriber is therefore always created; it reads its config under its lock, moves or releases the divert on connected mice, and starts x1B04 resolution when the feature is switched on. `target_host` may be `None` (no host chosen): a press then only logs a warning.
+- `easy_switch.divert` (`Config.easy_switch_divert`, `SettingsService.set_easy_switch_divert`, tray): `SetReportFlagSubscriber` gets `prefer_divert` and then uses a **temporary** divert for the ES keys even when the keyboard supports analytics; `EasySwitchModeChangedEvent` on `flags` moves connected keyboards between the modes (analytics off + divert on, or the reverse). Reason: with Options+ running, an analytics press was never reported to us (Mac BT and Windows Bolt), so only the keyboard switched.
+- `follow_keyboard` (`KeyboardFollowSubscriber`, tray): some keyboards (MX Keys for Business) accept analytics for D1–D3 but never report the press, so the departing host only sees the keyboard disconnect. When a keyboard disconnects and stays away `FOLLOW_DELAY_S` (1.5s), a connected mouse with 0x1814 remains, a target is set, and no `HostChangeEvent` was seen in the last `OWN_SWITCH_WINDOW_S` (5s), it publishes `HostChangeEvent(source=FOLLOW)` to `target_host` and records it in the echo guard. Hooks treat FOLLOW like EDGE/BUTTON. A keyboard switched off by hand is indistinguishable and takes the mouse along.
+- First start: `_load_config` writes `config_file.DEFAULT_CONFIG` to the default path when no `-c` was given and the file is missing.
+
+### Tray
+
+`tray/` (Windows and macOS; `--no-tray` turns it off). `cli_module.main` starts discovery on its thread and runs `tray.runner.run_tray` on the main thread (AppKit requires it); a watcher thread stops the icon when discovery ends, and the icon going away sets `shutdown`. `TrayController` builds the menu as plain `MenuEntry` data and owns every action (tested); `pystray_tray.PystrayTray` renders it with pystray (coverage-excluded GUI glue: on macOS a subclass sets a template image, the accessory activation policy, and delivers SIGINT/SIGTERM through `MachSignals` so shutdown still un-diverts; UI updates go through `AppHelper.callAfter`). `autostart.py` writes HKCU Run / a LaunchAgent with the label `setup_startup.command` uses; `desktop.py` finds and opens Logi Options+ and asks for channel names (osascript / tkinter, off the menu thread). Strings are German or English by system language (`strings.py`). The macOS build is `CleverSwitch.app` (`LSUIElement`, `NSBluetoothAlwaysUsageDescription`, re-signed ad hoc); the Windows exe is `--noconsole` and `util/console.py` borrows the parent's console or redirected handles for `--version` and `-v`.
+
 ### Logging
 
 `log/log_setup.py` owns every root handler; nothing else calls `basicConfig` or adds root handlers.

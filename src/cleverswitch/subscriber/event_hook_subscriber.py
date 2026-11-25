@@ -15,6 +15,9 @@ from ..topic.topics import Topics
 
 log = logging.getLogger(__name__)
 
+# Switches CleverSwitch starts itself; they carry no originating device.
+_SOFTWARE_SOURCES = (SwitchSource.EDGE, SwitchSource.BUTTON, SwitchSource.FOLLOW)
+
 
 class EventHookSubscriber(Subscriber):
     def __init__(
@@ -61,7 +64,8 @@ class EventHookSubscriber(Subscriber):
             hooks.fire_disconnect(self._hooks_config, device.display_name, device.role)
 
     def _on_host_change(self, event: HostChangeEvent) -> None:
-        if event.source == SwitchSource.EDGE:
+        # Edge, button and follow switches send every device away, so report one representative device for them.
+        if event.source in _SOFTWARE_SOURCES:
             if not self._has_change_host_device():
                 # Nothing was sent, so reporting a switch would only mislead a hook.
                 log.debug("No device supports CHANGE_HOST; SWITCH hooks are skipped")
@@ -73,9 +77,9 @@ class EventHookSubscriber(Subscriber):
                 None,
             )
         if device is None or device.name is None or device.role is None:
-            if event.source == SwitchSource.EDGE:
-                # Only an edge switch can get here: a device switch carries its own pid/slot.
-                log.debug("No named device to report the edge switch; SWITCH hooks are skipped")
+            if event.source in _SOFTWARE_SOURCES:
+                # Only an edge or button switch can get here: a device switch carries its own pid/slot.
+                log.debug(f"No named device to report the {event.source.value} switch; SWITCH hooks are skipped")
             return
         hooks.fire_switch(
             self._hooks_config, device.display_name, device.role, event.target_host, source=event.source.value

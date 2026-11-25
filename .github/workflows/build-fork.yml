@@ -1,0 +1,84 @@
+name: Build binaries
+
+# Builds the Windows and macOS binaries from any branch without a release tag, for testing and for
+# signing/allow-listing the exact build that gets installed. Run it from the Actions tab
+# ("Run workflow") or by pushing to a feature/** branch. Download the zip/tar.gz from the run's artifacts.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature/**"]
+
+permissions:
+  contents: write  # each build attaches its archive to the branch's pre-release
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos
+            # Apple silicon (arm64). The Intel build did not start on Apple silicon without Rosetta 2.
+            # arm64 runners can queue for a while when GitHub is short of capacity.
+            os: macos-15
+            archive: cleverswitch_macOS.tar.gz
+          - name: windows
+            os: windows-latest
+            archive: cleverswitch_windows_x64.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Full history and tags so setuptools-scm can derive a version.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build (macOS)
+        if: matrix.name == 'macos'
+        run: bash scripts/mac/build.sh
+
+      - name: Build (Windows)
+        if: matrix.name == 'windows'
+        shell: cmd
+        run: scripts\windows\build.bat
+
+      - name: Show version and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls dist
+          if [ -f dist/cleverswitch.exe ]; then dist/cleverswitch.exe --version; else dist/CleverSwitch.app/Contents/MacOS/CleverSwitch --version; fi
+          files=$(find dist -maxdepth 1 -type f)
+          if command -v sha256sum >/dev/null; then sha256sum $files; else shasum -a 256 $files; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cleverswitch-${{ matrix.name }}-${{ github.sha }}
+          path: dist/${{ matrix.archive }}
+          if-no-files-found: error
+
+      # Each platform publishes on its own, so a slow or missing runner never holds back the other build.
+      - name: Attach to the branch's pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="dev-${BRANCH//\//-}"
+          # A pre-release from an older commit is replaced, so its assets never mix with this build's.
+          old_target=$(gh release view "$tag" --repo "$REPO" --json targetCommitish -q .targetCommitish 2>/dev/null || true)
+          if [ -n "$old_target" ] && [ "$old_target" != "$SHA" ]; then
+            gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag
+          fi
+          gh release create "$tag" --repo "$REPO" --prerelease --target "$SHA" \
+            --title "Test build: $BRANCH (${SHA::7})" \
+            --notes "Test build of \`$BRANCH\` at ${SHA::7}. Not an official CleverSwitch release. SHA-256 of each archive is in the asset list." \
+            2>/dev/null || true
+          gh release upload "$tag" --repo "$REPO" --clobber "dist/${{ matrix.archive }}"

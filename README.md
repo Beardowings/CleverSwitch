@@ -1,94 +1,143 @@
-# CleverSwitch
+# CleverSwitch – mouse button fork
 
-A small, headless, cross-platform daemon that synchronizes host switching between Logitech keyboard and mouse.
-When you press the Easy-Switch button on the keyboard, CleverSwitch detects it and immediately sends the same host-switch command to the mouse — so both devices land on the same host simultaneously.
+**Press one mouse button and the mouse and the keyboard both move to the other computer.** Offline, without a Logitech account, with Logi Options+ allowed to keep running.
 
-- Runs alongside Logi Options+ or Solaar without conflicts.
-- Must be installed on every host you plan to switch from.
-- Supports connections via Logitech receivers and Bluetooth.
-- Tested with `MX Keys` and `MX Master 3` on Linux, macOS, and Windows.
+This is a fork of [CleverSwitch](https://github.com/MikalaiBarysevich/CleverSwitch) for Windows and macOS. It adds:
 
-> **Note:** CleverSwitch does not override device firmware. It acts as a forwarder, which means there is a small delay after reconnection. If you switch back immediately after arriving from another host, the devices may not switch together — CleverSwitch needs a moment to set everything up after reconnection.
+- **Switching by mouse button:** the thumb button (or back, forward, middle, SmartShift) sends every Logitech device that supports host switching to the channel you chose.
+- **A tray / menu bar icon:** turn the switch on and off, pick the target channel and the button, name the channels, open Logi Options+, start at login.
+- **Nothing to set up by hand:** the config file is created on first start and kept up to date by the menu.
+- **Optional: the mouse follows the keyboard.** For keyboards whose Easy-Switch keys cannot take the mouse along. Off by default, meant for exactly two computers; see [Mouse follows the keyboard](#mouse-follows-the-keyboard-optional-off-by-default).
 
-## Support the Project
+Tested with `MX Master 3S for Business` and `MX Keys for Business`: a Windows notebook on a Bolt receiver, and a Mac with Apple silicon on Bluetooth with Logi Options+ running.
 
-If you find this project useful, consider supporting its development:
+> **The keyboard's Easy-Switch keys do not take the mouse along** on these keyboards on their own. Use the mouse button, or turn on [Mouse follows the keyboard](#mouse-follows-the-keyboard-optional-off-by-default). Background: [Limits](#limits-the-keyboards-easy-switch-keys).
 
-- **Credit Card:** [Donate via Boosty](https://boosty.to/mikalaibarysevich)
-- **Crypto:**
-    - `BTC`: 1HXzgmGZHjLMWrQC8pgYvmcm6afD4idqr7
-    - `USDT (TRC20)`: TXpJ3MHcSc144npXLuRbU81gJjD8cwAyzP
+## How it works
+
+1. Pair the keyboard and the mouse with every computer, on the same channel numbers (e.g. channel 1 = notebook, channel 2 = Mac).
+2. Run CleverSwitch on **every** computer. On each one, set the target channel to the **other** computer: on the computer on channel 1 pick channel 2, on the computer on channel 2 pick channel 1.
+3. Press the thumb button. CleverSwitch tells the keyboard and the mouse to switch to the target channel, and both land on the other computer, where CleverSwitch is waiting to send them back.
 
 ## Installation
 
-See [installation guide](docs/Installation.md) for full installation, update, startup, and uninstall instructions for all platforms.
+Download the current version (1.0.0) from the [Releases page](https://github.com/Beardowings/CleverSwitch/releases/latest). Install CleverSwitch on **every** computer you switch between. No admin rights are needed.
 
+**Windows** (`cleverswitch_windows_x64.zip`)
 
-## Hook Scripts
+1. Unzip it and put `cleverswitch.exe` in a folder of your own, for example `C:\Users\<you>\Programs\CleverSwitch\cleverswitch.exe`.
+2. If endpoint protection blocks unknown programs, allow-list the exe by its SHA-256 (`Get-FileHash cleverswitch.exe` in PowerShell). Every build has a new hash.
+3. Double-click `cleverswitch.exe`. The icon appears in the tray (it may sit under the arrow next to the clock).
+4. In the menu, pick the **target channel** and turn on **Start at login**.
 
-Hook scripts let you run custom commands or scripts in response to CleverSwitch events. Hooks are executed asynchronously and never block the switch relay.
-You should use this when you need some extra logic. Like switch display input source when devices connects to current PC.
+**macOS** (`cleverswitch_macOS.tar.gz`, Apple silicon)
 
-By default, hooks only fire for keyboard events. Set `hooks.fire_for_all_devices: true` in config to include mouse events as well.
+1. Unpack it and move `CleverSwitch.app` to `/Applications`.
+2. Open it once with right-click → **Open** (the app is not notarized). If macOS still refuses, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+3. Allow **Input Monitoring** and **Bluetooth** for CleverSwitch when asked. If no prompt appears, add `/Applications/CleverSwitch.app` under **System Settings → Privacy & Security → Input Monitoring**, then quit and reopen it.
+4. The icon appears in the menu bar. Pick the **target channel** and turn on **Start at login**.
 
-### Events
+To update, quit CleverSwitch from its menu, replace the exe or the app, and start it again. Settings stay in the config file. On Windows, allow-list the new exe's SHA-256 again. On macOS, a new build may ask for **Input Monitoring** and **Bluetooth** again; if the switch does nothing after an update, remove CleverSwitch from **System Settings → Privacy & Security → Input Monitoring**, add `/Applications/CleverSwitch.app` again and reopen it.
 
-| Event        | When it fires                                                 |
-|--------------|---------------------------------------------------------------|
-| `switch`     | The Easy-Switch button was pressed, or an edge switch fired, and a host change was sent |
-| `connect`    | A device connected (including wake from sleep)                |
-| `disconnect` | A device disconnected (including sleep)                       |
+## Tray / menu bar icon
 
-### Environment variables
+On Windows and macOS CleverSwitch shows an icon in the tray / menu bar: a small keyboard with the mouse in front of it and the switch arrows between them. While the mouse button switch is off, the icon is greyed out on Windows and crossed out on macOS. The exe and the app use the same icon. The menu is in German or English, following the system language:
 
-Each hook receives the following environment variables:
+| Menu item | What it does |
+|-----------|--------------|
+| Status line | The button and the target channel, or that the switch is off |
+| Switch with mouse button | Turns the mouse button switch on and off |
+| Target channel | The Easy-Switch channel (1–3) the button sends both devices to |
+| Name channels | Labels for the channels, e.g. "1 – Notebook", "2 – Mac" |
+| Button | Thumb, back, forward, middle or SmartShift button |
+| Mouse follows the keyboard's Easy-Switch keys | Optional, **off by default**; see [Mouse follows the keyboard](#mouse-follows-the-keyboard-optional-off-by-default) |
+| Open Logi Options+ | Starts Options+ when it is installed |
+| Start at login | A `HKCU\…\Software\Microsoft\Windows\CurrentVersion\Run` value on Windows, a LaunchAgent in `~/Library/LaunchAgents` on macOS; no admin rights |
+| Advanced | Divert the button itself, open the config file, open the log folder |
+| Quit CleverSwitch | Gives the button back to the mouse and exits |
 
-| Variable                   | Values                                | Description                                        |
-|----------------------------|---------------------------------------|----------------------------------------------------|
-| `CLEVERSWITCH_EVENT`       | `switch` \| `connect` \| `disconnect` | The event type                                     |
-| `CLEVERSWITCH_DEVICE`      | `keyboard` \| `mouse`                 | The device that triggered the event                |
-| `CLEVERSWITCH_DEVICE_NAME` | e.g. `MX Keys`                        | Human-readable device name                         |
-| `CLEVERSWITCH_TARGET_HOST` | `1`, `2`, or `3`                      | Target host number (1-based; `switch` events only) |
-| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge`                  | What started the switch (`switch` events only); for `edge`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
+Every change applies at once, without a restart, and is saved to the config file. `--no-tray` runs without the icon.
 
-### Configuration
+## Mouse follows the keyboard (optional, off by default)
 
-CleverSwitch looks for its config file at:
+Works on Windows and macOS. **Off by default**, and only worth trying when you switch between exactly two computers. It is for keyboards that never report the Easy-Switch press (see [Limits](#limits-the-keyboards-easy-switch-keys)): when the keyboard leaves this computer and stays away for 1.5 s while the mouse is still connected, CleverSwitch sends the mouse to the target channel. Turn it on in the menu (**Mouse follows the keyboard's Easy-Switch keys**) or with `follow_keyboard: true` under `mouse_button_switch` in the [config file](#config-file). Turn it on on **both** computers, each with the other computer as its target channel.
 
-- **Linux / macOS:** `~/.config/cleverswitch/config.yaml`
-- **Windows:** `%USERPROFILE%\.config\cleverswitch\config.yaml`
+It cannot know where the keyboard went, only that it left, so the mouse always goes to the one target channel:
+
+- With three channels in use, the mouse ends up on the wrong computer whenever the keyboard went to the other one.
+- Switching the keyboard off, or the keyboard losing range or battery, sends the mouse away too.
+- A switch CleverSwitch sent itself (the mouse button), a sleeping computer and an unplugged receiver are not followed.
+
+## Config file
+
+CleverSwitch reads its config file from:
+
+| Platform | Path |
+|----------|------|
+| Windows | `C:\Users\<you>\.config\cleverswitch\config.yaml` (`%USERPROFILE%\.config\cleverswitch\config.yaml`) |
+| macOS | `/Users/<you>/.config/cleverswitch/config.yaml` (`~/.config/cleverswitch/config.yaml`) |
+| Linux | `/home/<you>/.config/cleverswitch/config.yaml` (`~/.config/cleverswitch/config.yaml`) |
 
 You can override this path with the `--config` CLI flag.
 
-A starting point is provided in [`config.example.yaml`](config.example.yaml) — copy it to the path above and rename it to `config.yaml`.
+If the file does not exist, CleverSwitch creates it on first start (only for the default path, not with `--config`). On Windows and macOS the menu item **Advanced → Open config file** opens it. Every option is described in [`config.example.yaml`](config.example.yaml). Changes made in the menu are saved there at once; changes made by hand need a restart. The menu rewrites the file without comments.
 
-Each hook is a **named** entry with the following keys:
+Without a config file, CleverSwitch starts with the mouse button switch on and no target channel; pick the channel in the menu.
 
-| Key       | Description                                                                            |
-|-----------|----------------------------------------------------------------------------------------|
-| `path`    | A script to run directly, without a shell. Mutually exclusive with `command`.           |
-| `command` | A shell command (supports pipes, `$VAR` expansion, etc). Mutually exclusive with `path`. |
-| `type`    | Which event(s) fire the hook: `CONNECT`, `SWITCH`, `DISCONNECT` — a single value or a list. |
-| `timeout` | Seconds before the hook process is killed (default: `5`).                               |
-| `fire_for_all_devices` | Optional per-hook override of the global `hooks.fire_for_all_devices`. Set `true` to also fire for mouse events, or `false` to stay keyboard-only; omit to inherit the global default. |
+### Mouse button settings
 
-Specify exactly one of `path` or `command`; setting both (or neither) logs an error and skips that hook.
+The same settings as the menu, in the config file:
 
 ```yaml
-hooks:
-  # Set to true to also fire hooks for mouse events (default: false)
-  # fire_for_all_devices: false
-
-  notifyOnSwitch:
-    command: "notify-send 'CleverSwitch' \"Switched to host $CLEVERSWITCH_TARGET_HOST\""
-    type: SWITCH
-
-  syncDisplayInput:
-    path: "~/.config/cleverswitch/on_connect.sh"
-    type: [CONNECT, DISCONNECT]
-    fire_for_all_devices: true   # this hook also fires for the mouse
-    timeout: 10
+mouse_button_switch:
+  button: gesture   # gesture (thumb) | back | forward | middle | smartshift, or a CID such as 0x00C3
+  host: 2           # 1..3, the Easy-Switch channel to switch to
+  divert: true      # false: only listen while Logi Options+ diverts the button
 ```
+
+- Run CleverSwitch on every computer, each pointing at the **other** one: `host: 2` on the computer on channel 1, `host: 1` on the computer on channel 2.
+- With `divert: true` (default) CleverSwitch diverts the button over HID++ (0x1B04), so the button no longer does its normal action. The divert is temporary: the mouse forgets it on power-off and CleverSwitch un-diverts it on exit.
+- **Next to Logi Options+:** if Options+ already assigns an action to the same button, it diverts the button too, and both programs see the press. Then set `divert: false` and give the button a harmless action in Options+ (it still runs). If Options+ leaves the button on its default, `divert: true` should work without touching Options+ (not yet tested on hardware).
+- Every device that supports CHANGE_HOST (0x1814) is switched. A keyboard in deep sleep may miss the command; if it stays behind, press a key and switch again.
+- Editing the file by hand needs a restart; changes from the menu do not. Channel names live in `host_names` (`1: Notebook`).
+
+## Logs
+
+CleverSwitch writes a size-rotated log file on every platform:
+
+- **Linux:** `~/.local/state/cleverswitch/cleverswitch.log` (or `$XDG_STATE_HOME/cleverswitch/`). Under systemd the output also goes to the journal: `journalctl --user -u cleverswitch`.
+- **macOS:** `~/Library/Logs/CleverSwitch/cleverswitch.log` (also visible in Console.app).
+- **Windows:** `%LOCALAPPDATA%\CleverSwitch\Logs\cleverswitch.log`
+
+When the file reaches its size limit it is renamed to `cleverswitch.log.1` (older ones shift to `.2`, `.3`, ...) and a fresh file is started. When run from a terminal, logs are printed there as well. If a second instance is started it logs to the console only. `-v` / `-vv` force DEBUG.
+
+Logging is configured in the `logging:` section of the config file:
+
+```yaml
+logging:
+  level: INFO          # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  file:
+    enabled: true      # false: console only
+    path: ~/cleverswitch.log
+    max_size_mb: 5     # 1..1024
+    backup_count: 3    # 1..50
+```
+
+When reporting a bug, please attach this log file.
+
+## Limits: the keyboard's Easy-Switch keys
+
+The original CleverSwitch is built around the keyboard's Easy-Switch keys: the keyboard reports the press, and CleverSwitch sends the mouse to the same channel. That only works with keyboards that report the press, such as the `MX Keys` the original was tested with.
+
+The `MX Keys for Business` (and, per the original project's issues [#113](https://github.com/MikalaiBarysevich/CleverSwitch/issues/113) and [#28](https://github.com/MikalaiBarysevich/CleverSwitch/issues/28), the `MX Keys S`) switch away without reporting which key was pressed. The computer only sees the keyboard disconnect, so the mouse stays behind. This happens on Bolt and on Bluetooth, with or without Logi Options+. The keys cannot be diverted either (the log says `cannot divert its Easy-Switch keys`). **Use the mouse button instead.**
+
+If you switch between exactly two computers, [Mouse follows the keyboard](#mouse-follows-the-keyboard-optional-off-by-default) makes the Easy-Switch keys usable anyway.
+
+On keyboards that do report the press, the relay from the original still works. If Logi Options+ takes the press away from CleverSwitch, `easy_switch: {divert: true}` in the config file makes CleverSwitch divert the keys, if the keyboard allows it.
+
+## Inherited from the original CleverSwitch
+
+Everything below comes from the original project and is unchanged in this fork: Linux support, switching at a screen edge, and hook scripts. For Linux, Homebrew and AUR installs see the original [installation guide](docs/Installation.md); those packages install the original CleverSwitch, without the mouse button switch and the tray icon.
 
 ## Edge Switch
 
@@ -185,30 +234,67 @@ Watching screen edges (edge-linux)
 
 Anything else is one of: `Edge switch is not running: …` (with the reason, retried on the next device connection), `Edge switch cannot read any keyboard or mouse in /dev/input` (the udev rule or group, then restart), or `still unavailable` after a retry. On KDE and GNOME the message names the missing or disabled extension. To check the gesture itself without switching hosts, hold the modifier and move onto an edge while watching the log — the trace says what the detector saw.
 
-## Logs
+## Hook Scripts
 
-CleverSwitch writes a size-rotated log file on every platform:
+Hook scripts let you run custom commands or scripts in response to CleverSwitch events. Hooks are executed asynchronously and never block the switch relay.
+You should use this when you need some extra logic. Like switch display input source when devices connects to current PC.
 
-- **Linux:** `~/.local/state/cleverswitch/cleverswitch.log` (or `$XDG_STATE_HOME/cleverswitch/`). Under systemd the output also goes to the journal: `journalctl --user -u cleverswitch`.
-- **macOS:** `~/Library/Logs/CleverSwitch/cleverswitch.log` (also visible in Console.app).
-- **Windows:** `%LOCALAPPDATA%\CleverSwitch\Logs\cleverswitch.log`
+By default, hooks only fire for keyboard events. Set `hooks.fire_for_all_devices: true` in config to include mouse events as well.
 
-When the file reaches its size limit it is renamed to `cleverswitch.log.1` (older ones shift to `.2`, `.3`, ...) and a fresh file is started. When run from a terminal, logs are printed there as well. If a second instance is started it logs to the console only. `-v` / `-vv` force DEBUG.
+### Events
 
-Logging is configured in the `logging:` section of the config file:
+| Event        | When it fires                                                 |
+|--------------|---------------------------------------------------------------|
+| `switch`     | The mouse button, an Easy-Switch key or an edge switch started a host change, and it was sent |
+| `connect`    | A device connected (including wake from sleep)                |
+| `disconnect` | A device disconnected (including sleep)                       |
+
+### Environment variables
+
+Each hook receives the following environment variables:
+
+| Variable                   | Values                                | Description                                        |
+|----------------------------|---------------------------------------|----------------------------------------------------|
+| `CLEVERSWITCH_EVENT`       | `switch` \| `connect` \| `disconnect` | The event type                                     |
+| `CLEVERSWITCH_DEVICE`      | `keyboard` \| `mouse`                 | The device that triggered the event                |
+| `CLEVERSWITCH_DEVICE_NAME` | e.g. `MX Keys`                        | Human-readable device name                         |
+| `CLEVERSWITCH_TARGET_HOST` | `1`, `2`, or `3`                      | Target host number (1-based; `switch` events only) |
+| `CLEVERSWITCH_SWITCH_SOURCE` | `device` \| `edge` \| `button` \| `follow` | What started the switch (`switch` events only); for `edge`, `button` and `follow`, `CLEVERSWITCH_DEVICE` names a keyboard when one is known (a connected one first), otherwise any named device |
+
+### Hook configuration
+
+Hooks live in the [config file](#config-file). Each hook is a **named** entry with the following keys:
+
+| Key       | Description                                                                            |
+|-----------|----------------------------------------------------------------------------------------|
+| `path`    | A script to run directly, without a shell. Mutually exclusive with `command`.           |
+| `command` | A shell command (supports pipes, `$VAR` expansion, etc). Mutually exclusive with `path`. |
+| `type`    | Which event(s) fire the hook: `CONNECT`, `SWITCH`, `DISCONNECT` — a single value or a list. |
+| `timeout` | Seconds before the hook process is killed (default: `5`).                               |
+| `fire_for_all_devices` | Optional per-hook override of the global `hooks.fire_for_all_devices`. Set `true` to also fire for mouse events, or `false` to stay keyboard-only; omit to inherit the global default. |
+
+Specify exactly one of `path` or `command`; setting both (or neither) logs an error and skips that hook.
 
 ```yaml
-logging:
-  level: INFO          # DEBUG | INFO | WARNING | ERROR | CRITICAL
-  file:
-    enabled: true      # false: console only
-    path: ~/cleverswitch.log
-    max_size_mb: 5     # 1..1024
-    backup_count: 3    # 1..50
+hooks:
+  # Set to true to also fire hooks for mouse events (default: false)
+  # fire_for_all_devices: false
+
+  notifyOnSwitch:
+    command: "notify-send 'CleverSwitch' \"Switched to host $CLEVERSWITCH_TARGET_HOST\""
+    type: SWITCH
+
+  syncDisplayInput:
+    path: "~/.config/cleverswitch/on_connect.sh"
+    type: [CONNECT, DISCONNECT]
+    fire_for_all_devices: true   # this hook also fires for the mouse
+    timeout: 10
 ```
 
-When reporting a bug, please attach this log file.
+## Problems
 
-## Found a Bug?
+This fork has no issue tracker of its own. Problems with the mouse button switch, the tray icon or the Windows/macOS builds belong to this fork, not to the original project; please do not report them there. Attach the [log file](#logs) when you describe a problem.
 
-Please open a [new issue](https://github.com/MikalaiBarysevich/CleverSwitch/issues/new?template=BUG.yml).
+## Credits and license
+
+CleverSwitch was written by [Mikalai Barysevich](https://github.com/MikalaiBarysevich/CleverSwitch). This fork is based on it and, like the original, is licensed under the [GNU General Public License v3.0](LICENSE.txt).

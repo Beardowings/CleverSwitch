@@ -15,6 +15,7 @@ class Task:
             CID_REPORTING = "cid-reporting-feature"
             NAME_AND_TYPE = "name-and-type-feature"
             FRIENDLY_NAME = "friendly-name-feature"
+            MOUSE_REPROG = "mouse-reprog-feature"
 
     class Name:
         FIND_ES_CIDS_FLAGS = "find-es-cids-flags"

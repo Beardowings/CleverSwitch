@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import os
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any
 import yaml
 
 from ..errors.errors import ConfigError
-from ..hidpp.constants import HOST_SWITCH_CIDS
+from ..hidpp.constants import HOST_SWITCH_CIDS, MOUSE_BUTTON_CIDS
 from ..model.config.args_settings import ArgsSettings
 from ..model.config.config import Config
 from ..model.config.edge import Edge
@@ -21,6 +22,7 @@ from ..model.config.hook_type import HookType
 from ..model.config.hooks_config import HooksConfig
 from ..model.config.logging_config import DEFAULT_BACKUP_COUNT, DEFAULT_MAX_BYTES, LoggingConfig
 from ..model.config.modifier import MODIFIER_NAMES, Modifier
+from ..model.config.mouse_button_switch_config import MouseButtonSwitchConfig
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ _MAX_SIZE_MB_RANGE = (1, 1024)
 _BACKUP_COUNT_RANGE = (1, 50)
 _COOLDOWN_MS_RANGE = (0, 60000)
 _EDGE_SWITCH_KEYS = frozenset({"enabled", "modifier", "cooldown_ms", "edges"})
+_MOUSE_BUTTON_SWITCH_KEYS = frozenset({"enabled", "button", "host", "divert", "follow_keyboard"})
 _VALID_HOSTS = frozenset(HOST_SWITCH_CIDS.values())
 _HOST_RANGE = f"{min(_VALID_HOSTS) + 1}..{max(_VALID_HOSTS) + 1}"
 
@@ -61,7 +64,7 @@ def load(cli_args: argparse.Namespace) -> Config:
     if not cfg_path.exists():
         if path:
             raise ConfigError(f"Config file not found: {cfg_path}")
-        return _parse({}, cli_args)
+        return dataclasses.replace(_parse({}, cli_args), config_path=cfg_path)
 
     try:
         with open(cfg_path) as f:
@@ -73,7 +76,7 @@ def load(cli_args: argparse.Namespace) -> Config:
         raise ConfigError(f"Config error in {cfg_path}: top level must be a mapping")
 
     try:
-        return _parse(raw, cli_args)
+        return dataclasses.replace(_parse(raw, cli_args), config_path=cfg_path)
     except (KeyError, TypeError, ValueError) as e:
         raise ConfigError(f"Config error in {cfg_path}: {e}") from e
 
@@ -98,8 +101,15 @@ def _parse(raw: dict[str, Any], cli_args: argparse.Namespace) -> Config:
         cache_path=cache_path,
         logging=_parse_logging(raw),
         edge_switch=_parse_edge_switch(raw),
+        mouse_button_switch=_parse_mouse_button_switch(raw),
+        host_names=_parse_host_names(raw),
+        easy_switch_divert=_parse_easy_switch_divert(raw),
     )
     return config
+
+
+def default_config_path() -> Path:
+    return _DEFAULT_CONFIG_PATH
 
 
 def _section(raw: dict[str, Any], key: str) -> dict[str, Any]:
@@ -198,6 +208,115 @@ def _parse_edge_switch(raw: dict[str, Any]) -> EdgeSwitchConfig:
         cooldown_ms=cooldown_ms,
         edges=edges,
     )
+
+
+# Mouse button switch is optional: a malformed section turns it off instead of stopping the daemon.
+def _parse_mouse_button_switch(raw: dict[str, Any]) -> MouseButtonSwitchConfig:
+    section = raw.get("mouse_button_switch")
+    if section is None:
+        return MouseButtonSwitchConfig()
+    if not isinstance(section, dict):
+        log.error(
+            f"'mouse_button_switch' must be a mapping, not {type(section).__name__}; mouse button switch disabled"
+        )
+        return MouseButtonSwitchConfig()
+    defaults = MouseButtonSwitchConfig()
+
+    for key in section:
+        if key not in _MOUSE_BUTTON_SWITCH_KEYS:
+            log.warning(f"mouse_button_switch has unknown key '{key}'; ignoring it")
+
+    enabled = section.get("enabled", True)
+    if not isinstance(enabled, bool):
+        log.error(f"mouse_button_switch 'enabled' must be true or false, not '{enabled}'; mouse button switch disabled")
+        enabled = False
+
+    divert = section.get("divert", defaults.divert)
+    if not isinstance(divert, bool):
+        log.error(f"mouse_button_switch 'divert' must be true or false, not '{divert}'; using {defaults.divert}")
+        divert = defaults.divert
+
+    follow_keyboard = section.get("follow_keyboard", defaults.follow_keyboard)
+    if not isinstance(follow_keyboard, bool):
+        log.error(f"mouse_button_switch 'follow_keyboard' must be true or false, not '{follow_keyboard}'; using false")
+        follow_keyboard = False
+
+    cid = _parse_button(section.get("button", "gesture"))
+    if enabled and cid is None:
+        log.error("mouse_button_switch disabled: no valid 'button'")
+        enabled = False
+
+    host = section.get("host")
+    if host is None:
+        target_host = None  # chosen later from the tray menu; a press switches nothing until then
+    elif isinstance(host, bool) or not isinstance(host, int) or host - 1 not in _VALID_HOSTS:
+        if enabled:
+            log.error(f"mouse_button_switch disabled: invalid 'host' '{host}' (expected {_HOST_RANGE})")
+        enabled = False
+        target_host = defaults.target_host
+    else:
+        target_host = host - 1
+
+    return MouseButtonSwitchConfig(
+        enabled=enabled,
+        cid=cid if cid is not None else defaults.cid,
+        target_host=target_host,
+        divert=divert,
+        follow_keyboard=follow_keyboard,
+    )
+
+
+def _parse_easy_switch_divert(raw: dict[str, Any]) -> bool:
+    section = raw.get("easy_switch")
+    if section is None:
+        return False
+    divert = section.get("divert", False) if isinstance(section, dict) else None
+    if not isinstance(divert, bool):
+        log.error("easy_switch 'divert' must be true or false; using false")
+        return False
+    return divert
+
+
+def _parse_host_names(raw: dict[str, Any]) -> dict[int, str]:
+    section = raw.get("host_names")
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        log.error(f"'host_names' must be a mapping, not {type(section).__name__}; ignoring it")
+        return {}
+    names: dict[int, str] = {}
+    for key, value in section.items():
+        if isinstance(key, bool) or not isinstance(key, int) or key - 1 not in _VALID_HOSTS:
+            log.warning(f"host_names has invalid host '{key}' (expected {_HOST_RANGE}); ignoring it")
+            continue
+        if value is None or not str(value).strip():
+            continue
+        names[key - 1] = str(value).strip()
+    return names
+
+
+def _parse_button(raw_button: Any) -> int | None:
+    if isinstance(raw_button, bool):
+        log.error(f"mouse_button_switch has invalid button '{raw_button}'")
+        return None
+    if isinstance(raw_button, int):
+        cid = raw_button
+    else:
+        text = str(raw_button).strip().lower()
+        if text in MOUSE_BUTTON_CIDS:
+            return MOUSE_BUTTON_CIDS[text]
+        try:
+            cid = int(text, 0)
+        except ValueError:
+            log.error(
+                f"mouse_button_switch has invalid button '{raw_button}' "
+                f"(expected one of {', '.join(MOUSE_BUTTON_CIDS)} or a CID such as 0x00C3)"
+            )
+            return None
+    if not 0 < cid <= 0xFFFF:
+        log.error(f"mouse_button_switch button CID {cid} is out of range")
+        return None
+    return cid
 
 
 def _parse_modifiers(raw_modifier: Any) -> Modifier | None:

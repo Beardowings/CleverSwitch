@@ -68,6 +68,16 @@ DEVICE_TYPE_TRACKBALL = 5  # treat as mouse-class
 # Host-Switch Channel CID codes → 0-based host index
 HOST_SWITCH_CIDS = {0x00D1: 0, 0x00D2: 1, 0x00D3: 2}
 
+# Mouse buttons that can trigger a host switch (mouse_button_switch). CIDs as reported by 0x1B04 getCidInfo
+# on the MX Master family; other mice may use other CIDs, which the config accepts as a number.
+MOUSE_BUTTON_CIDS = {
+    "middle": 0x0052,
+    "back": 0x0053,
+    "forward": 0x0056,
+    "gesture": 0x00C3,  # thumb button
+    "smartshift": 0x00C4,  # button behind the wheel
+}
+
 # REPROG_CONTROLS_V4 key capability flag (byte 4 of getCidInfo response)
 KEY_FLAG_DIVERTABLE = 0x20  # key can be temporarily diverted
 KEY_FLAG_PERSISTENTLY_DIVERTABLE = 0x40  # key can be persistently diverted
