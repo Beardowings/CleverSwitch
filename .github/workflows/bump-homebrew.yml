@@ -9,6 +9,8 @@ on:
 jobs:
   homebrew:
     name: Bump Homebrew formula
+    # Only the original project publishes Homebrew/AUR packages; forks have no credentials for them.
+    if: github.repository == 'MikalaiBarysevich/CleverSwitch'
     runs-on: ubuntu-latest
     steps:
       - uses: mislav/bump-homebrew-formula-action@v4

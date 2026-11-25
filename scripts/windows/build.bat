@@ -67,6 +67,9 @@ python -c "import yaml; print('pyyaml ok')" || (echo [ERROR] pyyaml not importab
 echo [INFO] Generating version resource...
 python scripts\windows\gen_version_info.py build\version_info.txt || (echo [ERROR] Version resource generation failed. & popd & exit /b 1)
 
+echo [INFO] Drawing the app icon...
+python -m cleverswitch.tray.icon_image build\icons || (echo [ERROR] Icon generation failed. & popd & exit /b 1)
+
 :: ── Step 3: PyInstaller ───────────────────────────────────────────────
 :: --hidden-import yaml is a safety net against a missed auto-detect. pystray picks its backend at
 :: runtime, so the Windows one is named explicitly. --noconsole: the tray icon is the user interface,
@@ -74,7 +77,7 @@ python scripts\windows\gen_version_info.py build\version_info.txt || (echo [ERRO
 :: (util/console.py), which the smoke test below relies on.
 
 echo [INFO] Building binary with PyInstaller...
-pyinstaller --onefile --noconsole --name %APP_NAME% --paths src --hidden-import yaml --hidden-import pystray._win32 --copy-metadata cleverswitch --version-file build\version_info.txt --add-binary "!HIDAPI_DLL!;." src\cleverswitch\__main__.py || (echo [ERROR] PyInstaller build failed. & popd & exit /b 1)
+pyinstaller --onefile --noconsole --name %APP_NAME% --paths src --hidden-import yaml --hidden-import pystray._win32 --copy-metadata cleverswitch --version-file build\version_info.txt --icon build\icons\cleverswitch.ico --add-binary "!HIDAPI_DLL!;." src\cleverswitch\__main__.py || (echo [ERROR] PyInstaller build failed. & popd & exit /b 1)
 
 :: ── Step 4: Smoke-test ────────────────────────────────────────────────
 :: Catch a dropped dependency here instead of on a user's machine.

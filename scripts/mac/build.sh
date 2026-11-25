@@ -51,12 +51,15 @@ if [ ! -f "$HIDAPI_DYLIB" ]; then
 fi
 info "Bundling $HIDAPI_DYLIB"
 
+info "Drawing the app icon..."
+python -m cleverswitch.tray.icon_image build/icons || error "Icon generation failed."
+
 info "Building CleverSwitch.app with PyInstaller..."
 # --windowed builds an app bundle: the menu bar icon needs one, and macOS then ties the Input
 # Monitoring and Bluetooth permissions to CleverSwitch itself instead of to Terminal.
 # pystray picks its backend at runtime, so the macOS one is named explicitly.
 rm -rf "dist/$BUNDLE_NAME.app"
-pyinstaller --noconfirm --windowed --name "$BUNDLE_NAME" --osx-bundle-identifier "$BUNDLE_ID" \
+pyinstaller --noconfirm --windowed --name "$BUNDLE_NAME" --osx-bundle-identifier "$BUNDLE_ID" --icon build/icons/cleverswitch.icns \
     --paths src --hidden-import yaml --hidden-import pystray._darwin --copy-metadata cleverswitch \
     --add-binary "$HIDAPI_DYLIB:." \
     src/cleverswitch/__main__.py
