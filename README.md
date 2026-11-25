@@ -6,6 +6,7 @@ This is a fork of [CleverSwitch](https://github.com/MikalaiBarysevich/CleverSwit
 
 - **Switching by mouse button:** the thumb button (or back, forward, middle, SmartShift) sends every Logitech device that supports host switching to the channel you chose.
 - **A tray / menu bar icon:** turn the switch on and off, pick the target channel and the button, name the channels, open Logi Options+, start at login.
+- **Updates from the menu:** **About …** shows the installed and the latest version and installs an update with one click.
 - **Nothing to set up by hand:** the config file is created on first start and kept up to date by the menu.
 - **Optional: the mouse follows the keyboard.** For keyboards whose Easy-Switch keys cannot take the mouse along. Off by default, meant for exactly two computers; see [Mouse follows the keyboard](#mouse-follows-the-keyboard-optional-off-by-default).
 
@@ -21,14 +22,13 @@ Tested with `MX Master 3S for Business` and `MX Keys for Business`: a Windows no
 
 ## Installation
 
-Download the current version (1.0.0) from the [Releases page](https://github.com/Beardowings/CleverSwitch/releases/latest). Install CleverSwitch on **every** computer you switch between. No admin rights are needed.
+Download the current version from the [Releases page](https://github.com/Beardowings/CleverSwitch/releases/latest). Install CleverSwitch on **every** computer you switch between. No admin rights are needed.
 
 **Windows** (`cleverswitch_windows_x64.zip`)
 
 1. Unzip it and put `cleverswitch.exe` in a folder of your own, for example `C:\Users\<you>\Programs\CleverSwitch\cleverswitch.exe`.
-2. If endpoint protection blocks unknown programs, allow-list the exe by its SHA-256 (`Get-FileHash cleverswitch.exe` in PowerShell). Every build has a new hash.
-3. Double-click `cleverswitch.exe`. The icon appears in the tray (it may sit under the arrow next to the clock).
-4. In the menu, pick the **target channel** and turn on **Start at login**.
+2. Double-click `cleverswitch.exe`. The icon appears in the tray (it may sit under the arrow next to the clock).
+3. In the menu, pick the **target channel** and turn on **Start at login**.
 
 **macOS** (`cleverswitch_macOS.tar.gz`, Apple silicon)
 
@@ -37,7 +37,16 @@ Download the current version (1.0.0) from the [Releases page](https://github.com
 3. Allow **Input Monitoring** and **Bluetooth** for CleverSwitch when asked. If no prompt appears, add `/Applications/CleverSwitch.app` under **System Settings → Privacy & Security → Input Monitoring**, then quit and reopen it.
 4. The icon appears in the menu bar. Pick the **target channel** and turn on **Start at login**.
 
-To update, quit CleverSwitch from its menu, replace the exe or the app, and start it again. Settings stay in the config file. On Windows, allow-list the new exe's SHA-256 again. On macOS, a new build may ask for **Input Monitoring** and **Bluetooth** again; if the switch does nothing after an update, remove CleverSwitch from **System Settings → Privacy & Security → Input Monitoring**, add `/Applications/CleverSwitch.app` again and reopen it.
+## Updating
+
+Open **About …** in the menu (German: **Info …**). It shows the installed version and the latest one on GitHub. When a newer version exists, **Update** downloads it, checks it against the SHA-256 GitHub lists for the file, replaces the exe or `/Applications/CleverSwitch.app` and restarts CleverSwitch. Settings stay in the config file.
+
+- GitHub is only asked when you open **About …**; CleverSwitch never checks in the background. It uses the system's proxy settings. If the proxy blocks GitHub, the window says so and everything else keeps working.
+- **Windows:** the exe is replaced in its folder, which must be writable (not `C:\Program Files`).
+- **macOS:** `/Applications` must be writable for your account. A new build may need **Input Monitoring** again: if the mouse button does nothing after an update, remove CleverSwitch under **System Settings → Privacy & Security → Input Monitoring**, add `/Applications/CleverSwitch.app` again and reopen it.
+- **Start at login** follows the installed copy: if the entry still names an older copy in another place, CleverSwitch points it at itself on the next start.
+
+To update by hand instead, quit CleverSwitch from its menu, replace the exe or the app, and start it again.
 
 ## Tray / menu bar icon
 
@@ -54,6 +63,7 @@ On Windows and macOS CleverSwitch shows an icon in the tray / menu bar: a small 
 | Open Logi Options+ | Starts Options+ when it is installed |
 | Start at login | A `HKCU\…\Software\Microsoft\Windows\CurrentVersion\Run` value on Windows, a LaunchAgent in `~/Library/LaunchAgents` on macOS; no admin rights |
 | Advanced | Divert the button itself, open the config file, open the log folder |
+| About … | Installed and latest version, **Update**, link to the GitHub repository; see [Updating](#updating) |
 | Quit CleverSwitch | Gives the button back to the mouse and exits |
 
 Every change applies at once, without a restart, and is saved to the config file. `--no-tray` runs without the icon.

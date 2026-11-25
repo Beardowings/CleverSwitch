@@ -7,9 +7,10 @@ import sys
 import threading
 
 from ..model.context.app_context import AppContext
+from ..update.service import Updates
 from .autostart import create_autostart
 from .controller import TrayController
-from .desktop import Desktop, ask_text_mac
+from .desktop import Desktop, ask_text_mac, choose_mac
 from .strings import detect_language, strings_for
 
 log = logging.getLogger(__name__)
@@ -25,11 +26,11 @@ def build_controller(context: AppContext, system: str) -> TrayController:
     logging_config = context.config.logging
     log_dir = logging_config.file_path.parent if logging_config.file_enabled else None
     if system == "Darwin":
-        ask_text = ask_text_mac
+        ask_text, choose = ask_text_mac, choose_mac
     else:
-        from .desktop import ask_text_windows
+        from .desktop import ask_text_windows, choose_windows
 
-        ask_text = ask_text_windows
+        ask_text, choose = ask_text_windows, choose_windows
     autostart = create_autostart(system)
     # Only a built exe/app repairs the entry: a run from source must not repoint it at the interpreter.
     if autostart is not None and getattr(sys, "frozen", False):
@@ -42,6 +43,8 @@ def build_controller(context: AppContext, system: str) -> TrayController:
         autostart=autostart,
         ask_text=ask_text,
         log_dir=log_dir,
+        updates=Updates(system),
+        choose=choose,
     )
 
 
